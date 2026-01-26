@@ -1,9 +1,13 @@
 export { BaseScraper } from './base';
 export { ICAScraper } from './ica';
 export { HemkopScraper } from './hemkop';
+export { CoopScraper } from './coop';
+export { LidlScraper } from './lidl';
 
 import { ICAScraper } from './ica';
 import { HemkopScraper } from './hemkop';
+import { CoopScraper } from './coop';
+import { LidlScraper } from './lidl';
 import type { ChainId } from '../types';
 import type { BaseScraper } from './base';
 
@@ -14,7 +18,9 @@ export function createScraper(chain: ChainId): BaseScraper {
     case 'hemkop':
       return new HemkopScraper();
     case 'coop':
+      return new CoopScraper();
     case 'lidl':
+      return new LidlScraper();
     case 'willys':
       throw new Error(`Scraper for ${chain} not implemented yet`);
     default:
@@ -23,5 +29,5 @@ export function createScraper(chain: ChainId): BaseScraper {
 }
 
 export function getSupportedChains(): ChainId[] {
-  return ['ica', 'hemkop'];
+  return ['ica', 'hemkop', 'coop', 'lidl'];
 }

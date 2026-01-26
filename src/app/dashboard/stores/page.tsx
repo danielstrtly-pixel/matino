@@ -53,7 +53,8 @@ const CHAINS = [
     color: "bg-green-50 border-green-200 hover:bg-green-100",
     activeColor: "bg-green-100 border-green-400",
     description: "Coop, Stora Coop, Coop Extra",
-    searchable: false,
+    searchable: true,
+    searchPlaceholder: "Sök på butik eller stad",
   },
   {
     id: "lidl",
@@ -61,8 +62,9 @@ const CHAINS = [
     logo: "🔵",
     color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
     activeColor: "bg-blue-100 border-blue-400",
-    description: "Lidl lågprisbutiker",
-    searchable: false,
+    description: "Lidl - samma erbjudanden i alla butiker",
+    searchable: true,
+    searchPlaceholder: "Sök på butik eller stad (eller välj 'Lidl Sverige' för alla)",
   },
 ];
 
