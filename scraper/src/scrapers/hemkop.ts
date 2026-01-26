@@ -152,6 +152,25 @@ export class HemkopScraper extends BaseScraper {
   private async extractOffersWithDataRole(page: Page, store: Store): Promise<Offer[]> {
     const offers: Offer[] = [];
     
+    // First, build a map of all product images on the page
+    // Hemköp uses tjek.com image transformer for product images
+    const imageMap = await page.evaluate(() => {
+      const map: Record<string, string> = {};
+      
+      document.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src') || '';
+        const alt = img.getAttribute('alt')?.toLowerCase().trim() || '';
+        
+        // Look for product images (tjek.com, axfood, cloudinary)
+        if (alt && (src.includes('tjek.com') || src.includes('axfood') || src.includes('cloudinary'))) {
+          map[alt] = src;
+        }
+      });
+      
+      return map;
+    });
+    console.log(`[Hemköp] Found ${Object.keys(imageMap).length} product images in map`);
+    
     // Find all offer elements
     const offerElements = await page.$$('[data-role="offer"]');
     console.log(`[Hemköp] Found ${offerElements.length} offer elements`);
@@ -265,9 +284,32 @@ export class HemkopScraper extends BaseScraper {
         
         if (!offerPrice || offerPrice < 1 || offerPrice > 10000) continue;
         
-        // Try to get image
-        const imgEl = await element.$('img');
-        let imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
+        // Try to get image - Hemköp uses tjek.com image transformer API
+        let imageUrl: string | undefined;
+        
+        // Find all images in the offer element
+        const imgElements = await element.$$('img');
+        for (const imgEl of imgElements) {
+          const src = await imgEl.getAttribute('src');
+          
+          // Accept tjek.com image transformer URLs (product images)
+          if (src && src.includes('image-transformer-api.tjek.com')) {
+            imageUrl = src;
+            break;
+          }
+          
+          // Also accept Axfood CDN URLs
+          if (src && src.includes('assets.axfood.se') && !src.includes('placeholder')) {
+            imageUrl = src;
+            break;
+          }
+          
+          // Accept cloudinary URLs (some product images)
+          if (src && src.includes('cloudinary') && src.includes('hemkop')) {
+            imageUrl = src;
+            break;
+          }
+        }
         
         // Also check for background-image in style
         if (!imageUrl) {
@@ -275,8 +317,23 @@ export class HemkopScraper extends BaseScraper {
           if (bgDiv) {
             const style = await bgDiv.getAttribute('style') || '';
             const bgMatch = style.match(/background-image:\s*url\(['"]?([^'"]+)['"]?\)/);
-            if (bgMatch) {
+            if (bgMatch && (bgMatch[1].includes('tjek.com') || bgMatch[1].includes('axfood') || bgMatch[1].includes('cloudinary'))) {
               imageUrl = bgMatch[1];
+            }
+          }
+        }
+        
+        // Last resort: match by product name from the pre-built image map
+        if (!imageUrl && name) {
+          const nameLower = name.toLowerCase().trim();
+          if (imageMap[nameLower]) {
+            imageUrl = imageMap[nameLower];
+          } else {
+            for (const [alt, url] of Object.entries(imageMap)) {
+              if (alt.includes(nameLower) || nameLower.includes(alt)) {
+                imageUrl = url;
+                break;
+              }
             }
           }
         }
@@ -351,16 +408,23 @@ export class HemkopScraper extends BaseScraper {
 
   private async scrollToLoadAll(page: Page): Promise<void> {
     console.log('[Hemköp] Scrolling to load all content...');
-    for (let i = 0; i < 15; i++) {
+    
+    // Scroll slowly to trigger lazy loading of images
+    for (let i = 0; i < 20; i++) {
       await page.evaluate(() => {
-        (globalThis as any).scrollBy(0, (globalThis as any).innerHeight);
+        window.scrollBy(0, window.innerHeight * 0.8);
       });
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(800); // Longer wait for images to load
     }
-    await page.waitForTimeout(2000);
+    
+    // Wait for images to finish loading
+    await page.waitForTimeout(3000);
+    
+    // Scroll back up slowly (some sites trigger more loading on scroll up)
     await page.evaluate(() => {
-      (globalThis as any).scrollTo(0, 0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
+    await page.waitForTimeout(1000);
   }
 
   private async acceptCookies(page: Page): Promise<void> {
