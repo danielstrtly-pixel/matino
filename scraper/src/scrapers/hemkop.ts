@@ -126,6 +126,37 @@ export class HemkopScraper extends BaseScraper {
 
         // Wait for page to render
         await page.waitForTimeout(3000);
+        
+        // Check for tabs and click each one to find product containers
+        try {
+          const tabs = await page.$$('[role="tab"], [data-testid*="tab"], button[class*="tab"]');
+          console.log(`[Hemköp] Found ${tabs.length} tabs`);
+          
+          for (let i = 0; i < tabs.length; i++) {
+            const tab = tabs[i];
+            const tabText = (await tab.textContent())?.trim() || '';
+            console.log(`[Hemköp] Tab ${i}: "${tabText}"`);
+            
+            // Click the tab
+            try {
+              await tab.click();
+              await page.waitForTimeout(2000);
+              
+              // Check if product containers appeared
+              const containers = await page.$$('[data-testid="product-container"]');
+              console.log(`[Hemköp] After clicking tab "${tabText}": ${containers.length} containers`);
+              
+              if (containers.length > 0) {
+                console.log(`[Hemköp] Found products in tab "${tabText}"!`);
+                break;
+              }
+            } catch (e) {
+              console.log(`[Hemköp] Could not click tab: ${e}`);
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
 
         // Scroll to load lazy content
         await this.scrollToLoadAll(page);
@@ -146,14 +177,124 @@ export class HemkopScraper extends BaseScraper {
   }
 
   /**
-   * Extract offers using data-role="offer" elements
-   * This is the primary method for Hemköp's tjek-incito based offer pages
+   * Extract offers from Hemköp's product cards
+   * Uses data-testid="product-container" which has axfood.se images
    */
   private async extractOffersWithDataRole(page: Page, store: Store): Promise<Offer[]> {
     const offers: Offer[] = [];
     
+    // Debug: Check what testids exist on the page
+    const testIds = await page.evaluate(() => {
+      const ids = new Set<string>();
+      document.querySelectorAll('[data-testid]').forEach(el => {
+        ids.add(el.getAttribute('data-testid') || '');
+      });
+      return Array.from(ids).filter(id => id.includes('product') || id.includes('offer') || id.includes('price'));
+    });
+    console.log(`[Hemköp] Relevant data-testids found:`, testIds.slice(0, 15));
+    
+    // First try the product-container elements (better quality, axfood images)
+    const productContainers = await page.$$('[data-testid="product-container"]');
+    console.log(`[Hemköp] Found ${productContainers.length} product containers`);
+    
+    if (productContainers.length > 0) {
+      for (const container of productContainers) {
+        try {
+          // Get product title
+          const titleEl = await container.$('[data-testid="product-title"]');
+          const name = titleEl ? (await titleEl.textContent())?.trim() : null;
+          if (!name) continue;
+          
+          // Get image from axfood CDN
+          const imgEl = await container.$('img[src*="assets.axfood.se"]');
+          const imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
+          
+          // Get price
+          const priceEl = await container.$('[data-testid="price-text"], [data-testid="price-container"]');
+          const priceText = priceEl ? (await priceEl.textContent())?.trim() : '';
+          const priceMatch = priceText?.match(/(\d+)[,.]?(\d*)/);
+          if (!priceMatch) continue;
+          
+          const whole = parseInt(priceMatch[1]);
+          const decimal = priceMatch[2] ? parseInt(priceMatch[2].padEnd(2, '0')) / 100 : 0;
+          const offerPrice = whole + decimal;
+          
+          if (offerPrice < 1 || offerPrice > 10000) continue;
+          
+          // Get brand/manufacturer
+          const brandEl = await container.$('[data-testid="display-manufacturer"]');
+          const brand = brandEl ? (await brandEl.textContent())?.trim().replace(/,\s*$/, '') : undefined;
+          
+          // Get unit
+          const unitEl = await container.$('[data-testid="price-unit"]');
+          const unit = unitEl ? (await unitEl.textContent())?.trim().replace('/', '') : undefined;
+          
+          // Check for membership requirement (Klubbpris)
+          const fullText = (await container.textContent()) || '';
+          const requiresMembership = /klubbpris/i.test(fullText);
+          
+          const offer: Offer = {
+            id: this.generateOfferId('hemkop', store.externalId, name),
+            name,
+            brand,
+            offerPrice,
+            unit,
+            imageUrl: imageUrl || undefined,
+            storeId: store.id,
+            chain: 'hemkop',
+            requiresMembership,
+            scrapedAt: new Date(),
+          };
+          
+          // Check for duplicates
+          const isDupe = offers.some(o => o.name === name && o.offerPrice === offerPrice);
+          if (!isDupe) {
+            offers.push(offer);
+          }
+        } catch (e) {
+          // Skip problematic elements
+        }
+      }
+      
+      console.log(`[Hemköp] Extracted ${offers.length} offers from product containers`);
+      if (offers.length > 0) {
+        return offers;
+      }
+    }
+    
+    // Fallback to data-role="offer" elements if no product containers found
+    console.log('[Hemköp] Falling back to data-role="offer" extraction');
+    
+    // Debug: Check ALL image sources on the page
+    const debugImages = await page.evaluate(() => {
+      const sources: Record<string, number> = {};
+      document.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src') || '';
+        try {
+          const url = new URL(src);
+          const host = url.hostname;
+          sources[host] = (sources[host] || 0) + 1;
+        } catch {
+          if (src.startsWith('data:')) {
+            sources['data:'] = (sources['data:'] || 0) + 1;
+          }
+        }
+      });
+      return sources;
+    });
+    console.log(`[Hemköp] Image sources on page:`, debugImages);
+    
+    // Also check for axfood images specifically
+    const axfoodImages = await page.evaluate(() => {
+      const results: string[] = [];
+      document.querySelectorAll('img[src*="axfood"], img[src*="assets.axfood"]').forEach(img => {
+        results.push(img.getAttribute('src') || '');
+      });
+      return results.slice(0, 5);
+    });
+    console.log(`[Hemköp] Axfood images found:`, axfoodImages);
+    
     // First, build a map of all product images on the page
-    // Hemköp uses tjek.com image transformer for product images
     const imageMap = await page.evaluate(() => {
       const map: Record<string, string> = {};
       
@@ -161,9 +302,12 @@ export class HemkopScraper extends BaseScraper {
         const src = img.getAttribute('src') || '';
         const alt = img.getAttribute('alt')?.toLowerCase().trim() || '';
         
-        // Look for product images (tjek.com, axfood, cloudinary)
-        if (alt && (src.includes('tjek.com') || src.includes('axfood') || src.includes('cloudinary'))) {
-          map[alt] = src;
+        // Prioritize axfood.se images, then tjek.com, then cloudinary
+        if (alt && (src.includes('axfood') || src.includes('tjek.com') || src.includes('cloudinary'))) {
+          // Only update if we don't have an axfood image already
+          if (!map[alt] || (src.includes('axfood') && !map[alt].includes('axfood'))) {
+            map[alt] = src;
+          }
         }
       });
       
@@ -409,22 +553,60 @@ export class HemkopScraper extends BaseScraper {
   private async scrollToLoadAll(page: Page): Promise<void> {
     console.log('[Hemköp] Scrolling to load all content...');
     
-    // Scroll slowly to trigger lazy loading of images
-    for (let i = 0; i < 20; i++) {
-      await page.evaluate(() => {
-        window.scrollBy(0, window.innerHeight * 0.8);
-      });
-      await page.waitForTimeout(800); // Longer wait for images to load
+    // Keep scrolling until we can't scroll anymore
+    let lastHeight = 0;
+    let scrollAttempts = 0;
+    const maxScrolls = 50;
+    
+    while (scrollAttempts < maxScrolls) {
+      const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+      
+      // Scroll to the bottom
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(800);
+      
+      // Check for "Visa mer" or "Ladda fler" buttons and click them
+      try {
+        const loadMoreBtn = await page.$('button:has-text("Visa mer"), button:has-text("Ladda"), button:has-text("Fler")');
+        if (loadMoreBtn) {
+          console.log('[Hemköp] Found "load more" button, clicking...');
+          await loadMoreBtn.click();
+          await page.waitForTimeout(2000);
+        }
+      } catch (e) {
+        // No button found
+      }
+      
+      // Check if product containers appeared
+      const containers = await page.$$('[data-testid="product-container"]');
+      if (containers.length > 0) {
+        console.log(`[Hemköp] Found ${containers.length} product containers after ${scrollAttempts} scrolls`);
+        break;
+      }
+      
+      // Check if we've stopped growing
+      if (currentHeight === lastHeight) {
+        scrollAttempts++;
+        if (scrollAttempts > 3) break; // Give up after 3 attempts with no growth
+      } else {
+        scrollAttempts = 0;
+      }
+      
+      lastHeight = currentHeight;
     }
     
-    // Wait for images to finish loading
-    await page.waitForTimeout(3000);
+    // Final check
+    const finalContainers = await page.$$('[data-testid="product-container"]');
+    console.log(`[Hemköp] Final product containers: ${finalContainers.length}`);
     
-    // Scroll back up slowly (some sites trigger more loading on scroll up)
-    await page.evaluate(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    // Also log the page height
+    const finalHeight = await page.evaluate(() => document.body.scrollHeight);
+    console.log(`[Hemköp] Final page height: ${finalHeight}px`);
+    
+    // Wait and scroll back to top
     await page.waitForTimeout(1000);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(500);
   }
 
   private async acceptCookies(page: Page): Promise<void> {
