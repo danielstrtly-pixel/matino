@@ -4,39 +4,64 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CHAINS, PREDEFINED_STORES, type Offer, type Store, type ChainId } from "@/lib/scraper-client";
+
+interface Offer {
+  id: string;
+  name: string;
+  brand?: string;
+  originalPrice?: number;
+  offerPrice: number;
+  unit?: string;
+  imageUrl?: string;
+  requiresMembership?: boolean;
+  scrapedAt: string;
+  storeId: string;
+  storeName?: string;
+  chain: string;
+  chainName?: string;
+  chainLogo?: string;
+}
+
+const CHAINS = [
+  { id: 'ica', name: 'ICA', logo: '🔴', supported: true },
+  { id: 'hemkop', name: 'Hemköp', logo: '🟠', supported: true },
+  { id: 'coop', name: 'Coop', logo: '🟢', supported: false },
+  { id: 'lidl', name: 'Lidl', logo: '🔵', supported: false },
+];
 
 export default function DealsPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedChain, setSelectedChain] = useState<ChainId | "all">("all");
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [selectedChain, setSelectedChain] = useState<string | "all">("all");
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  // Auto-load Hemköp Östermalmstorg on mount for demo
   useEffect(() => {
-    const defaultStore = PREDEFINED_STORES.find(s => s.id === 'hemkop-4147');
-    if (defaultStore) {
-      loadOffers(defaultStore);
-    }
+    loadOffers();
   }, []);
 
-  const loadOffers = async (store: Store) => {
+  const loadOffers = async (storeId?: string) => {
     setLoading(true);
     setError(null);
-    setSelectedStore(store);
     
     try {
-      const res = await fetch('/api/offers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(store),
-      });
+      const params = new URLSearchParams();
+      if (storeId) params.set('storeId', storeId);
+      
+      const res = await fetch(`/api/offers?${params}`);
       
       if (!res.ok) throw new Error('Failed to fetch offers');
       
       const data = await res.json();
       setOffers(data.offers || []);
+      
+      // Find most recent scrape time
+      if (data.offers?.length > 0) {
+        const newest = data.offers.reduce((a: Offer, b: Offer) => 
+          new Date(a.scrapedAt) > new Date(b.scrapedAt) ? a : b
+        );
+        setLastUpdated(newest.scrapedAt);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load offers');
       setOffers([]);
@@ -49,40 +74,30 @@ export default function DealsPage() {
     ? offers 
     : offers.filter(o => o.chain === selectedChain);
 
-  const getChainConfig = (chainId: ChainId) => {
+  const getChainConfig = (chainId: string) => {
     return CHAINS.find(c => c.id === chainId);
   };
+
+  // Group offers by chain for stats
+  const offersByChain = offers.reduce((acc, o) => {
+    acc[o.chain] = (acc[o.chain] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Veckans erbjudanden</h1>
         <p className="text-gray-600 mt-2">
-          {selectedStore 
-            ? `Erbjudanden från ${selectedStore.name}`
-            : 'Välj en butik för att se erbjudanden'}
+          {offers.length > 0 
+            ? `${offers.length} erbjudanden från dina valda butiker`
+            : 'Välj butiker i inställningarna för att se erbjudanden'}
         </p>
-      </div>
-
-      {/* Store selector */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-medium mb-3">Välj butik:</h3>
-        <div className="flex flex-wrap gap-2">
-          {PREDEFINED_STORES.map((store) => {
-            const chain = getChainConfig(store.chain);
-            return (
-              <Button
-                key={store.id}
-                variant={selectedStore?.id === store.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => loadOffers(store)}
-                disabled={loading}
-              >
-                {chain?.logo} {store.name}
-              </Button>
-            );
-          })}
-        </div>
+        {lastUpdated && (
+          <p className="text-sm text-gray-400 mt-1">
+            Uppdaterad: {new Date(lastUpdated).toLocaleString('sv-SE')}
+          </p>
+        )}
       </div>
 
       {/* Filter buttons */}
@@ -95,7 +110,7 @@ export default function DealsPage() {
           Alla ({offers.length})
         </Badge>
         {CHAINS.filter(c => c.supported).map((chain) => {
-          const count = offers.filter(o => o.chain === chain.id).length;
+          const count = offersByChain[chain.id] || 0;
           if (count === 0) return null;
           return (
             <Badge 
@@ -114,7 +129,7 @@ export default function DealsPage() {
       {loading && (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Hämtar erbjudanden...</p>
+          <p className="mt-4 text-gray-600">Laddar erbjudanden...</p>
         </div>
       )}
 
@@ -122,11 +137,28 @@ export default function DealsPage() {
       {error && (
         <div className="p-4 bg-red-50 rounded-lg border border-red-200 mb-6">
           <p className="text-red-800">❌ {error}</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => loadOffers()}>
+            Försök igen
+          </Button>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && offers.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">🛒</div>
+          <h3 className="text-xl font-medium mb-2">Inga erbjudanden ännu</h3>
+          <p className="text-gray-500 mb-4">
+            Välj butiker i inställningarna så hämtar vi erbjudanden åt dig.
+          </p>
+          <Button asChild>
+            <a href="/dashboard/stores">Välj butiker</a>
+          </Button>
         </div>
       )}
 
       {/* Deals grid */}
-      {!loading && !error && (
+      {!loading && !error && filteredOffers.length > 0 && (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredOffers.map((offer) => {
             const chain = getChainConfig(offer.chain);
@@ -149,7 +181,7 @@ export default function DealsPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-500 flex items-center gap-1">
-                        {chain?.logo} {chain?.name}
+                        {offer.chainLogo || chain?.logo} {offer.storeName || chain?.name}
                       </p>
                       <CardTitle className="text-base mt-1 line-clamp-2">{offer.name}</CardTitle>
                       {offer.brand && (
@@ -162,7 +194,7 @@ export default function DealsPage() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-xl font-bold text-green-600">
                       {offer.offerPrice} kr
-                      {offer.unit && <span className="text-sm">/{offer.unit}</span>}
+                      {offer.unit && <span className="text-sm font-normal">/{offer.unit}</span>}
                     </span>
                     {offer.originalPrice && (
                       <span className="text-gray-400 line-through text-sm">
@@ -182,20 +214,11 @@ export default function DealsPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {!loading && !error && filteredOffers.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">Inga erbjudanden hittades.</p>
-          <p className="text-sm text-gray-400 mt-2">Välj en butik ovan för att se erbjudanden.</p>
-        </div>
-      )}
-
-      {/* Stats */}
+      {/* Stats footer */}
       {!loading && offers.length > 0 && (
         <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
           <p className="text-green-800 text-sm">
-            ✅ Visar {filteredOffers.length} erbjudanden
-            {selectedStore && ` från ${selectedStore.name}`}
+            ✅ Visar {filteredOffers.length} av {offers.length} erbjudanden
           </p>
         </div>
       )}
