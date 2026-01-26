@@ -85,10 +85,16 @@ const HEMKOP_CATEGORY_MAP: Record<string, StandardCategory> = {
 
 // Keywords for AI-like classification based on product name
 const KEYWORD_PATTERNS: Array<{ pattern: RegExp; category: StandardCategory }> = [
-  // Kött & Chark
-  { pattern: /(kött|fläsk|nöt|lamm|kyckling|fågel|korv|bacon|skinka|salami|leverpastej|falukorv|prinskorv|hamburgare|köttbullar|färs|biff|entrecote|filé|schnitzel|kassler|kycklingbröst|fläskfilé|nötfärs|blandfärs|högrev|bog|revben|kotlett|köttfärs|pulled|brisket|oxfilé|fläskkotlett|kalkon|anka|and|gris|griskött|nötkött|lammkött)/i, category: 'kott-chark' },
-  // Mejeri
-  { pattern: /\b(mjölk|fil|yoghurt|grädde|créme|ost|smör|margarin|ägg|kvarg|keso|feta|mozzarella|cheddar|brie|parmesan|gouda|edamer|grädd|crème|mascarpone|ricotta|halloumi|västerbotten|herrgård|prästost|gruyère|emmental|philadelph|laktosfri)\b/i, category: 'mejeri' },
+  // Kött & Chark (using word boundaries, removed 'and' which conflicts with 'flytande')
+  { pattern: /\b(kött|fläsk|nöt|lamm|kyckling|fågel|korv|bacon|skinka|salami|leverpastej|falukorv|prinskorv|hamburgare|köttbullar|biff|entrecote|schnitzel|kassler|högrev|bog|revben|kotlett|pulled|brisket|kalkon|anka|gris|griskött|nötkött|lammkött)\b/i, category: 'kott-chark' },
+  // Compound words for meat (allow prefix like 'majs-' and suffix)
+  { pattern: /(kycklingbröst|kycklingfilé|fläskfilé|nötfärs|blandfärs|köttfärs|oxfilé|fläskkotlett|köttbullar|fläskkarré|kycklingklubba|lammkotlett|nötbiff)/i, category: 'kott-chark' },
+  // Färs only when it's the whole word or start of compound (not in 'färskost')  
+  { pattern: /\b(färs|blandfärs|nötfärs|köttfärs|fläskfärs|lammfärs)\b/i, category: 'kott-chark' },
+  // Mejeri (with word boundaries to avoid false positives like 'fil' in 'filé')
+  { pattern: /\b(mjölk|fil|yoghurt|grädde|créme|smör|margarin|ägg|kvarg|keso|feta|mozzarella|cheddar|brie|parmesan|gouda|edamer|grädd|crème|mascarpone|ricotta|halloumi|västerbotten|herrgård|prästost|gruyère|emmental|philadelph|laktosfri|cream\s*cheese)\b/i, category: 'mejeri' },
+  // Ost as suffix (färskost, hårdost, etc) or standalone
+  { pattern: /\b(\w*ost|färskost)\b/i, category: 'mejeri' },
   // Frukt & Grönt
   { pattern: /\b(äpple|päron|banan|apelsin|citron|lime|vindruva|melon|mango|ananas|avokado|tomat|gurka|paprika|lök|vitlök|morot|potatis|sallad|spenat|broccoli|blomkål|zucchini|aubergine|svamp|champinjon|dill|persilja|basilika|örter|kål|vitkål|rödkål|purjolök|selleri|rädisa|rädisor|ruccola|pak choi|bönor|ärtor|majs|sparris|kronärtskock|fänkål|rotselleri|palsternacka|jordärtskock|sötpotatis|squash|pumpa|cantaloupe|nektarin|persika|aprikos|plommon|kiwi|granatäpple|fikon|dadel|passionsfrukt|papaya|kokos|jordgubb|hallon|blåbär|björnbär)\b/i, category: 'frukt-gront' },
   // Fisk
@@ -100,7 +106,7 @@ const KEYWORD_PATTERNS: Array<{ pattern: RegExp; category: StandardCategory }> =
   // Skafferi
   { pattern: /\b(pasta|ris|spagetti|makaroner|nudlar|bulgur|couscous|quinoa|linser|bönor|kikärtor|krossade tomater|passerade|ketchup|senap|majonnäs|soja|olja|vinäger|mjöl|socker|salt|kryddor|buljong|fond|müsli|flingor|havregryn|cornflakes|granola|marmelad|sylt|honung|nutella|jordnötssmör|konserv|inlagd|oliver|kapris|pesto|tomatpuré|kokosmjölk|sambal|curry|tandoori)\b/i, category: 'skafferi' },
   // Dryck
-  { pattern: /\b(läsk|cola|fanta|sprite|saft|juice|vatten|mineralvatten|kaffe|te|energidryck|öl|vin|cider|dricka|dryck|lemonad|nektar|smoothie|milkshake|apelsinjuice|äppeljuice|must|julmust|påskmust|tonic|ginger\s*ale|redbull|monster|nocco)\b/i, category: 'dryck' },
+  { pattern: /\b(läsk|cola|fanta|sprite|saft|juice|vatten|mineralvatten|kaffe|te|energidryck|öl|vin|cider|dricka|dryck|lemonad|nektar|smoothie|milkshake|apelsinjuice|äppeljuice|must|julmust|påskmust|tonic|ginger\s*ale|redbull|monster|nocco|lättöl|starköl|folköl|mellanöl|leväjn|porter|lager|ale|ipa|pilsner|weissbier|stout|norrlands|mariestads|carlsberg|heineken|falcon|pripps)\b/i, category: 'dryck' },
   // Godis & Snacks
   { pattern: /\b(godis|choklad|chips|popcorn|nötter|mandlar|russin|lakrits|tuggummi|lösgodis|kola|marshmallow|snacks|marabou|fazer|ahlgrens|bilar|gott|sötsaker|kexchoklad|daim|toblerone|twix|snickers|bounty|geisha|plopp|jordnöt|cashew|pistasch|hasselnöt|valnöt)\b/i, category: 'godis-snacks' },
   // Hygien & Hushåll
