@@ -5,98 +5,141 @@ import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+    <div className="min-h-screen bg-cream">
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🥗</span>
-          <span className="text-xl font-bold text-green-800">Matino</span>
+          <span className="text-xl font-serif font-bold text-charcoal">Matino</span>
+        </div>
+        <div className="hidden md:flex items-center gap-8">
+          <Link href="#how-it-works" className="text-charcoal/70 hover:text-charcoal transition-colors">
+            Så funkar det
+          </Link>
+          <Link href="#features" className="text-charcoal/70 hover:text-charcoal transition-colors">
+            Funktioner
+          </Link>
+          <Link href="#stores" className="text-charcoal/70 hover:text-charcoal transition-colors">
+            Butiker
+          </Link>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/login" className="text-gray-600 hover:text-gray-900">
+          <Link href="/login" className="text-charcoal/70 hover:text-charcoal transition-colors hidden sm:block">
             Logga in
           </Link>
-          <Button asChild>
-            <Link href="/signup">Kom igång gratis</Link>
+          <Button asChild className="bg-fresh hover:bg-fresh-dark text-white rounded-full px-6">
+            <Link href="/signup">Kom igång</Link>
           </Button>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <Badge variant="secondary" className="mb-4">
-          🎉 Prova gratis i 7 dagar
-        </Badge>
-        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-          Smartare matplanering.<br />
-          <span className="text-green-600">Billigare vardag.</span>
-        </h1>
-        <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-          Matino hittar veckans bästa erbjudanden från dina favoritbutiker och 
-          skapar en personlig veckomeny med AI. Spara tid, spara pengar.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button size="lg" asChild>
-            <Link href="/demo">Prova utan att logga in →</Link>
-          </Button>
-          <Button size="lg" variant="outline" asChild>
-            <Link href="/signup">Skapa konto</Link>
-          </Button>
+      <section className="container mx-auto px-4 py-16 md:py-24">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <Badge className="bg-orange-light text-orange border-0 mb-6">
+              🥕 Matplanering gjort enkelt
+            </Badge>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-charcoal mb-6 leading-tight">
+              Gör det enkelt med{" "}
+              <span className="text-fresh">färska</span>{" "}
+              matplaner
+            </h1>
+            <p className="text-lg text-charcoal/70 mb-8 max-w-lg">
+              Matino hittar veckans bästa erbjudanden från dina favoritbutiker och 
+              skapar personliga veckomenyer med AI. Spara tid och pengar.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg">
+                <Link href="/demo">Prova nu</Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-full px-8 py-6 text-lg border-cream-dark hover:bg-cream-dark">
+                <Link href="/signup">Skapa konto</Link>
+              </Button>
+            </div>
+            <p className="text-sm text-charcoal/50 mt-4">
+              ✨ Gratis i 7 dagar · 69 kr/mån · Avsluta när du vill
+            </p>
+          </div>
+          
+          {/* Feature cards floating */}
+          <div className="relative hidden lg:block">
+            <div className="bg-cream-light rounded-3xl p-8 shadow-lg">
+              <div className="text-8xl mb-4">🥗</div>
+              <p className="text-charcoal/50 text-sm">Illustration placeholder</p>
+            </div>
+            
+            {/* Floating badge 1 */}
+            <div className="absolute -top-4 -right-4 bg-white rounded-2xl p-4 shadow-lg flex items-center gap-3">
+              <div className="w-10 h-10 bg-fresh-light rounded-full flex items-center justify-center">
+                <span className="text-fresh">✓</span>
+              </div>
+              <div>
+                <p className="font-semibold text-charcoal text-sm">100% Färskt</p>
+                <p className="text-xs text-charcoal/50">Alltid uppdaterat</p>
+              </div>
+            </div>
+            
+            {/* Floating badge 2 */}
+            <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl p-4 shadow-lg flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-light rounded-full flex items-center justify-center">
+                <span className="text-orange">🚀</span>
+              </div>
+              <div>
+                <p className="font-semibold text-charcoal text-sm">Snabb leverans</p>
+                <p className="text-xs text-charcoal/50">Direkt till dig</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mt-4">
-          69 kr/mån efter provperioden. Avsluta när du vill.
-        </p>
       </section>
 
       {/* How it works */}
-      <section className="container mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold text-center mb-12">Så funkar det</h2>
+      <section id="how-it-works" className="container mx-auto px-4 py-20">
+        <div className="text-center mb-16">
+          <Badge className="bg-fresh-light text-fresh border-0 mb-4">Så funkar det</Badge>
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-charcoal">
+            Tre enkla steg till smartare matlagning
+          </h2>
+        </div>
+        
         <div className="grid md:grid-cols-3 gap-8">
-          <Card className="text-center p-6">
-            <CardContent className="pt-6">
-              <div className="text-4xl mb-4">🏪</div>
-              <h3 className="text-xl font-semibold mb-2">1. Välj dina butiker</h3>
-              <p className="text-gray-600">
-                Välj vilka butiker du handlar i. Vi stödjer ICA, Coop, Hemköp och Lidl.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="text-center p-6">
-            <CardContent className="pt-6">
-              <div className="text-4xl mb-4">🤖</div>
-              <h3 className="text-xl font-semibold mb-2">2. AI skapar din meny</h3>
-              <p className="text-gray-600">
-                Vår AI analyserar erbjudanden och dina preferenser för att skapa den perfekta veckomenyn.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="text-center p-6">
-            <CardContent className="pt-6">
-              <div className="text-4xl mb-4">📝</div>
-              <h3 className="text-xl font-semibold mb-2">3. Handla smart</h3>
-              <p className="text-gray-600">
-                Få en smart inköpslista som visar var du köper vad – och sparar mest.
-              </p>
-            </CardContent>
-          </Card>
+          {[
+            { icon: "🏪", num: "01", title: "Välj dina butiker", desc: "Välj vilka butiker du handlar i. Vi stödjer ICA, Coop, Hemköp och Lidl." },
+            { icon: "🤖", num: "02", title: "AI skapar din meny", desc: "Vår AI analyserar erbjudanden och dina preferenser för den perfekta veckomenyn." },
+            { icon: "📝", num: "03", title: "Handla smart", desc: "Få en smart inköpslista som visar var du köper vad – och sparar mest." },
+          ].map((step, i) => (
+            <Card key={i} className="bg-cream-light border-cream-dark rounded-2xl p-6 hover:shadow-lg transition-shadow">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="text-4xl">{step.icon}</div>
+                  <span className="text-5xl font-serif font-bold text-cream-dark">{step.num}</span>
+                </div>
+                <h3 className="text-xl font-serif font-semibold text-charcoal mb-2">{step.title}</h3>
+                <p className="text-charcoal/70">{step.desc}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 
       {/* Features */}
-      <section className="bg-green-900 text-white py-20">
+      <section id="features" className="bg-fresh text-white py-20">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Varför Matino?</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold">Varför Matino?</h2>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { icon: "💰", title: "Spara pengar", desc: "Menyer baserade på veckans bästa deals" },
               { icon: "⏰", title: "Spara tid", desc: "Slipp frågan 'vad ska vi äta?'" },
               { icon: "🎯", title: "Personligt", desc: "AI som lär sig vad du gillar" },
-              { icon: "👨‍👩‍👧‍👦", title: "För hela familjen", desc: "Dela menyer och listor" },
+              { icon: "👨‍👩‍👧‍👦", title: "För hela familjen", desc: "Dela menyer och inköpslistor" },
             ].map((feature, i) => (
-              <div key={i} className="text-center">
-                <div className="text-3xl mb-2">{feature.icon}</div>
-                <h3 className="font-semibold mb-1">{feature.title}</h3>
-                <p className="text-green-200 text-sm">{feature.desc}</p>
+              <div key={i} className="text-center p-6 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors">
+                <div className="text-4xl mb-4">{feature.icon}</div>
+                <h3 className="font-serif font-semibold text-lg mb-2">{feature.title}</h3>
+                <p className="text-white/70 text-sm">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -104,26 +147,31 @@ export default function Home() {
       </section>
 
       {/* Supported stores */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <h2 className="text-3xl font-bold mb-8">Butiker vi stödjer</h2>
-        <div className="flex flex-wrap justify-center gap-8 items-center opacity-70">
-          <div className="text-2xl font-bold text-red-600">ICA</div>
-          <div className="text-2xl font-bold text-green-700">Coop</div>
-          <div className="text-2xl font-bold text-red-500">Hemköp</div>
-          <div className="text-2xl font-bold text-blue-600">Lidl</div>
+      <section id="stores" className="container mx-auto px-4 py-20 text-center">
+        <Badge className="bg-orange-light text-orange border-0 mb-4">Butiker</Badge>
+        <h2 className="text-3xl md:text-4xl font-serif font-bold text-charcoal mb-12">
+          Vi hämtar erbjudanden från
+        </h2>
+        <div className="flex flex-wrap justify-center gap-12 items-center">
+          <div className="text-3xl font-bold text-red-600 opacity-80 hover:opacity-100 transition-opacity">ICA</div>
+          <div className="text-3xl font-bold text-green-700 opacity-80 hover:opacity-100 transition-opacity">Coop</div>
+          <div className="text-3xl font-bold text-orange-600 opacity-80 hover:opacity-100 transition-opacity">Hemköp</div>
+          <div className="text-3xl font-bold text-blue-600 opacity-80 hover:opacity-100 transition-opacity">Lidl</div>
         </div>
-        <p className="text-gray-500 mt-4">Fler butiker kommer snart...</p>
+        <p className="text-charcoal/50 mt-6">Fler butiker kommer snart...</p>
       </section>
 
       {/* CTA */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <Card className="max-w-2xl mx-auto p-8 bg-gradient-to-r from-green-500 to-green-600 text-white border-0">
-          <CardContent className="pt-6">
-            <h2 className="text-3xl font-bold mb-4">Redo att äta smartare?</h2>
-            <p className="mb-6 text-green-100">
+      <section className="container mx-auto px-4 py-20">
+        <Card className="max-w-3xl mx-auto p-8 md:p-12 bg-orange text-white border-0 rounded-3xl">
+          <CardContent className="pt-6 text-center">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">
+              Redo att äta smartare?
+            </h2>
+            <p className="mb-8 text-white/80 text-lg">
               Börja med 7 dagars gratis provperiod. Inget betalkort krävs.
             </p>
-            <Button size="lg" variant="secondary" asChild>
+            <Button size="lg" className="bg-white text-orange hover:bg-cream-light rounded-full px-10 py-6 text-lg font-semibold">
               <Link href="/signup">Kom igång nu →</Link>
             </Button>
           </CardContent>
@@ -131,9 +179,17 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8">
-        <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
-          <p>© 2026 Matino. Gjord med 🥗 i Stockholm.</p>
+      <footer className="border-t border-cream-dark py-8">
+        <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🥗</span>
+            <span className="font-serif font-bold text-charcoal">Matino</span>
+          </div>
+          <p className="text-charcoal/50 text-sm">© 2026 Matino. Gjord med 🥗 i Stockholm.</p>
+          <div className="flex gap-6 text-sm text-charcoal/50">
+            <Link href="#" className="hover:text-charcoal">Integritet</Link>
+            <Link href="#" className="hover:text-charcoal">Villkor</Link>
+          </div>
         </div>
       </footer>
     </div>
