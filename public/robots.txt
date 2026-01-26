@@ -1,0 +1,6 @@
+# Matino robots.txt
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://matino.se/sitemap.xml
