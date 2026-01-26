@@ -77,12 +77,13 @@
 ## 🟣 UI/UX
 
 ### Gränssnitt
-- [ ] **Snygga till gränssnittet**
-  - [ ] Responsiv design
-  - [ ] Bättre kort-layout för erbjudanden
-  - [ ] Loading states
-  - [ ] Empty states
-  - [ ] Error handling
+- [x] **Snygga till gränssnittet** (delvis)
+  - [x] Responsiv design (grid-baserad)
+  - [x] Bättre kort-layout för erbjudanden (8 kolumner)
+  - [x] Loading states (butiker, erbjudanden)
+  - [x] Empty states (erbjudanden)
+  - [x] Error handling (erbjudanden)
+  - [x] Dashboard med stats och progress
 
 ---
 

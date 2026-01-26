@@ -1,67 +1,127 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
+interface Preferences {
+  householdSize: number;
+  likes: string[];
+  dislikes: string[];
+  allergies: string[];
+}
+
 export default function SettingsPage() {
-  const [preferences, setPreferences] = useState({
-    householdSize: 4,
-    likes: ["Kyckling", "Pasta", "Fisk"],
-    dislikes: ["Lever", "Svamp"],
-    allergies: [] as string[],
+  const [preferences, setPreferences] = useState<Preferences>({
+    householdSize: 2,
+    likes: [],
+    dislikes: [],
+    allergies: [],
   });
   const [newLike, setNewLike] = useState("");
   const [newDislike, setNewDislike] = useState("");
+  const [newAllergy, setNewAllergy] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const addLike = () => {
-    if (!newLike.trim()) return;
-    setPreferences((prev) => ({
-      ...prev,
-      likes: [...prev.likes, newLike],
-    }));
-    setNewLike("");
+  // Load preferences on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const res = await fetch("/api/user/preferences");
+        if (res.ok) {
+          const data = await res.json();
+          setPreferences(data);
+        }
+      } catch (e) {
+        console.error("Failed to load preferences:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadPreferences();
+  }, []);
+
+  // Save preferences
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+    
+    try {
+      const res = await fetch("/api/user/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(preferences),
+      });
+
+      if (res.ok) {
+        setSaveMessage("✅ Sparat!");
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setSaveMessage("❌ Kunde inte spara");
+      }
+    } catch (e) {
+      console.error("Failed to save preferences:", e);
+      setSaveMessage("❌ Något gick fel");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const addDislike = () => {
-    if (!newDislike.trim()) return;
+  const addItem = (list: keyof Pick<Preferences, 'likes' | 'dislikes' | 'allergies'>, value: string, setter: (v: string) => void) => {
+    if (!value.trim()) return;
+    if (preferences[list].includes(value.trim())) return;
+    
     setPreferences((prev) => ({
       ...prev,
-      dislikes: [...prev.dislikes, newDislike],
+      [list]: [...prev[list], value.trim()],
     }));
-    setNewDislike("");
+    setter("");
   };
 
-  const removeLike = (item: string) => {
+  const removeItem = (list: keyof Pick<Preferences, 'likes' | 'dislikes' | 'allergies'>, item: string) => {
     setPreferences((prev) => ({
       ...prev,
-      likes: prev.likes.filter((l) => l !== item),
+      [list]: prev[list].filter((i) => i !== item),
     }));
   };
 
-  const removeDislike = (item: string) => {
-    setPreferences((prev) => ({
-      ...prev,
-      dislikes: prev.dislikes.filter((d) => d !== item),
-    }));
-  };
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="text-center py-12">
+          <div className="text-2xl mb-2">🔄</div>
+          <p className="text-gray-500">Laddar inställningar...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Inställningar</h1>
-        <p className="text-gray-600 mt-2">
-          Anpassa Matino efter dina preferenser.
-        </p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Inställningar</h1>
+          <p className="text-gray-600 mt-2">
+            Anpassa Matino efter dina preferenser.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {saveMessage && <span className="text-sm">{saveMessage}</span>}
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Sparar..." : "Spara ändringar"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 max-w-2xl">
         {/* Household */}
         <Card>
           <CardHeader>
-            <CardTitle>Hushåll</CardTitle>
+            <CardTitle>👨‍👩‍👧‍👦 Hushåll</CardTitle>
             <CardDescription>Hur många är ni i hushållet?</CardDescription>
           </CardHeader>
           <CardContent>
@@ -87,19 +147,22 @@ export default function SettingsPage() {
         {/* Likes */}
         <Card>
           <CardHeader>
-            <CardTitle>Vad gillar ni? 😋</CardTitle>
+            <CardTitle>😋 Vad gillar ni?</CardTitle>
             <CardDescription>
               Ingredienser och rätter ni gärna vill ha mer av
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+              {preferences.likes.length === 0 && (
+                <span className="text-gray-400 text-sm">Inga favoriter ännu</span>
+              )}
               {preferences.likes.map((item) => (
                 <Badge
                   key={item}
                   variant="secondary"
                   className="gap-1 cursor-pointer hover:bg-red-100"
-                  onClick={() => removeLike(item)}
+                  onClick={() => removeItem("likes", item)}
                 >
                   {item} ✕
                 </Badge>
@@ -110,9 +173,9 @@ export default function SettingsPage() {
                 placeholder="T.ex. 'Pasta', 'Kyckling'..."
                 value={newLike}
                 onChange={(e) => setNewLike(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addLike()}
+                onKeyDown={(e) => e.key === "Enter" && addItem("likes", newLike, setNewLike)}
               />
-              <Button onClick={addLike}>Lägg till</Button>
+              <Button onClick={() => addItem("likes", newLike, setNewLike)}>Lägg till</Button>
             </div>
           </CardContent>
         </Card>
@@ -120,19 +183,22 @@ export default function SettingsPage() {
         {/* Dislikes */}
         <Card>
           <CardHeader>
-            <CardTitle>Vad gillar ni inte? 🙅</CardTitle>
+            <CardTitle>🙅 Vad gillar ni inte?</CardTitle>
             <CardDescription>
               Ingredienser ni vill undvika
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+              {preferences.dislikes.length === 0 && (
+                <span className="text-gray-400 text-sm">Inga ogillade ingredienser</span>
+              )}
               {preferences.dislikes.map((item) => (
                 <Badge
                   key={item}
                   variant="outline"
                   className="gap-1 cursor-pointer hover:bg-red-100"
-                  onClick={() => removeDislike(item)}
+                  onClick={() => removeItem("dislikes", item)}
                 >
                   {item} ✕
                 </Badge>
@@ -143,17 +209,57 @@ export default function SettingsPage() {
                 placeholder="T.ex. 'Lever', 'Svamp'..."
                 value={newDislike}
                 onChange={(e) => setNewDislike(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addDislike()}
+                onKeyDown={(e) => e.key === "Enter" && addItem("dislikes", newDislike, setNewDislike)}
               />
-              <Button variant="outline" onClick={addDislike}>Lägg till</Button>
+              <Button variant="outline" onClick={() => addItem("dislikes", newDislike, setNewDislike)}>
+                Lägg till
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Subscription */}
+        {/* Allergies */}
         <Card>
           <CardHeader>
-            <CardTitle>Prenumeration</CardTitle>
+            <CardTitle>⚠️ Allergier</CardTitle>
+            <CardDescription>
+              Allergier och intoleranser
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+              {preferences.allergies.length === 0 && (
+                <span className="text-gray-400 text-sm">Inga allergier angivna</span>
+              )}
+              {preferences.allergies.map((item) => (
+                <Badge
+                  key={item}
+                  variant="destructive"
+                  className="gap-1 cursor-pointer hover:opacity-80"
+                  onClick={() => removeItem("allergies", item)}
+                >
+                  {item} ✕
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="T.ex. 'Gluten', 'Nötter', 'Laktos'..."
+                value={newAllergy}
+                onChange={(e) => setNewAllergy(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addItem("allergies", newAllergy, setNewAllergy)}
+              />
+              <Button variant="destructive" onClick={() => addItem("allergies", newAllergy, setNewAllergy)}>
+                Lägg till
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Subscription placeholder */}
+        <Card>
+          <CardHeader>
+            <CardTitle>💳 Prenumeration</CardTitle>
             <CardDescription>Hantera din betalning</CardDescription>
           </CardHeader>
           <CardContent>
@@ -167,21 +273,9 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-500 mb-4">
               Efter provperioden: 69 kr/mån. Avsluta när du vill.
             </p>
-            <Button variant="outline">Hantera prenumeration</Button>
-          </CardContent>
-        </Card>
-
-        {/* Logout */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Konto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form action="/auth/signout" method="post">
-              <Button variant="outline" type="submit">
-                Logga ut
-              </Button>
-            </form>
+            <Button variant="outline" disabled>
+              Hantera prenumeration (kommer snart)
+            </Button>
           </CardContent>
         </Card>
       </div>
