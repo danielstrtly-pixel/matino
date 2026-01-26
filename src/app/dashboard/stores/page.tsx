@@ -66,7 +66,7 @@ const CHAINS = [
   },
 ];
 
-const SCRAPER_URL = process.env.NEXT_PUBLIC_SCRAPER_URL || "http://localhost:3001";
+// Uses internal API route that queries Supabase
 
 export default function StoresPage() {
   const [selectedStores, setSelectedStores] = useState<Store[]>([]);
@@ -89,7 +89,7 @@ export default function StoresPage() {
       setIsSearching(true);
       try {
         const res = await fetch(
-          `${SCRAPER_URL}/chains/${activeChain.id}/stores?q=${encodeURIComponent(searchQuery)}`
+          `/api/stores/search?chain=${activeChain.id}&q=${encodeURIComponent(searchQuery)}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -101,7 +101,7 @@ export default function StoresPage() {
       } finally {
         setIsSearching(false);
       }
-    }, 500);
+    }, 300); // Faster since we're querying local DB
 
     return () => clearTimeout(timer);
   }, [searchQuery, activeChain]);
