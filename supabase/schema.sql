@@ -56,7 +56,9 @@ CREATE TABLE IF NOT EXISTS offers (
   brand TEXT,
   description TEXT,
   original_price DECIMAL(10,2),
-  offer_price DECIMAL(10,2) NOT NULL,
+  offer_price DECIMAL(10,2) NOT NULL, -- Per-unit price (for sorting)
+  quantity INTEGER, -- For "X för Y" deals: how many items
+  quantity_price DECIMAL(10,2), -- For "X för Y" deals: total price
   unit TEXT, -- "kg", "st", "l", etc.
   savings TEXT, -- "-25%", "2 för 50 kr", etc.
   image_url TEXT,

@@ -18,6 +18,10 @@ export interface Offer {
   description?: string;
   originalPrice?: number;
   offerPrice: number;
+  /** For "X för Y" deals: how many items */
+  quantity?: number;
+  /** For "X för Y" deals: total price for quantity */
+  quantityPrice?: number;
   unit?: string;
   savings?: string;
   imageUrl?: string;

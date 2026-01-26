@@ -217,12 +217,13 @@ export class HemkopScraper extends BaseScraper {
               debugCount++;
             }
             
-            // Look for Swedish price patterns - Hemköp uses "5,00/st" format
+            // Look for Swedish price patterns
+            // IMPORTANT: Check "X för Y" first to avoid matching comparison prices (per kg)
             const pricePatterns = [
-              /(\d+)[,.](\d{2})\/(?:st|kg|l|förp)/i,  // 5,00/st, 29,90/kg
-              /(\d+)\s*för\s*(\d+)/i,                  // 2 för 79, 2 för 129
+              /(\d+)\s*för\s*(\d+)/i,                  // 2 för 79, 2 för 129 - CHECK FIRST
               /(\d+)[,:](\d{2})\s*(?:kr|:-)/i,        // 29,90 kr or 29:90:-
               /(\d+)\s*(?:kr|:-)/i,                    // 29 kr or 29:-
+              /(\d+)[,.](\d{2})\/st/i,                 // 5,00/st - per piece price (not kg!)
             ];
             
             let priceMatch = null;
@@ -291,13 +292,16 @@ export class HemkopScraper extends BaseScraper {
             // Get price - construct proper price string
             let priceStr = priceMatch[0];
             let price: number | undefined;
+            let quantity: number | undefined;
+            let quantityPrice: number | undefined;
             
             // Handle "X för Y" format (e.g., "2 för 79")
             const forMatch = priceStr.match(/(\d+)\s*för\s*(\d+)/i);
             if (forMatch) {
-              const count = parseInt(forMatch[1]);
-              const total = parseInt(forMatch[2]);
-              price = Math.round((total / count) * 100) / 100;
+              quantity = parseInt(forMatch[1]);
+              quantityPrice = parseInt(forMatch[2]);
+              // Store per-unit price for sorting/comparison, but keep quantity info
+              price = Math.round((quantityPrice / quantity) * 100) / 100;
             } else {
               price = this.parsePrice(priceStr);
             }
@@ -321,6 +325,8 @@ export class HemkopScraper extends BaseScraper {
               id: this.generateOfferId('hemkop', store.externalId, name),
               name,
               offerPrice: price,
+              quantity,
+              quantityPrice,
               imageUrl: imageUrl || undefined,
               storeId: store.id,
               chain: 'hemkop',
