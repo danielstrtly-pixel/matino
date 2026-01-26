@@ -22,6 +22,7 @@ interface Offer {
   chain: string;
   chainName?: string;
   chainLogo?: string;
+  category?: string;
 }
 
 const CHAINS = [
@@ -31,11 +32,26 @@ const CHAINS = [
   { id: 'lidl', name: 'Lidl', logo: '🔵', supported: false },
 ];
 
+const CATEGORIES = [
+  { id: 'frukt-gront', name: 'Frukt & Grönt', emoji: '🥬' },
+  { id: 'mejeri', name: 'Mejeri', emoji: '🧀' },
+  { id: 'kott-chark', name: 'Kött & Chark', emoji: '🥩' },
+  { id: 'fisk', name: 'Fisk', emoji: '🐟' },
+  { id: 'brod-bageri', name: 'Bröd & Bageri', emoji: '🥐' },
+  { id: 'fryst', name: 'Fryst', emoji: '🧊' },
+  { id: 'skafferi', name: 'Skafferi', emoji: '🥫' },
+  { id: 'dryck', name: 'Dryck', emoji: '🥤' },
+  { id: 'godis-snacks', name: 'Godis & Snacks', emoji: '🍫' },
+  { id: 'hygien-hushall', name: 'Hygien & Hushåll', emoji: '🧹' },
+  { id: 'ovrigt', name: 'Övrigt', emoji: '📦' },
+];
+
 export default function DealsPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChain, setSelectedChain] = useState<string | "all">("all");
+  const [selectedCategory, setSelectedCategory] = useState<string | "all">("all");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,17 +88,31 @@ export default function DealsPage() {
     }
   };
 
-  const filteredOffers = selectedChain === "all" 
-    ? offers 
-    : offers.filter(o => o.chain === selectedChain);
+  // Filter by chain and category
+  const filteredOffers = offers.filter(o => {
+    const chainMatch = selectedChain === "all" || o.chain === selectedChain;
+    const categoryMatch = selectedCategory === "all" || o.category === selectedCategory;
+    return chainMatch && categoryMatch;
+  });
 
   const getChainConfig = (chainId: string) => {
     return CHAINS.find(c => c.id === chainId);
   };
 
+  const getCategoryConfig = (categoryId: string) => {
+    return CATEGORIES.find(c => c.id === categoryId);
+  };
+
   // Group offers by chain for stats
   const offersByChain = offers.reduce((acc, o) => {
     acc[o.chain] = (acc[o.chain] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Group offers by category for stats
+  const offersByCategory = offers.reduce((acc, o) => {
+    const cat = o.category || 'ovrigt';
+    acc[cat] = (acc[cat] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -102,14 +132,14 @@ export default function DealsPage() {
         )}
       </div>
 
-      {/* Filter buttons */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      {/* Store filter */}
+      <div className="flex gap-2 mb-4 flex-wrap">
         <Badge 
           variant={selectedChain === "all" ? "secondary" : "outline"} 
           className="cursor-pointer"
           onClick={() => setSelectedChain("all")}
         >
-          Alla ({offers.length})
+          Alla butiker ({offers.length})
         </Badge>
         {CHAINS.filter(c => c.supported).map((chain) => {
           const count = offersByChain[chain.id] || 0;
@@ -122,6 +152,31 @@ export default function DealsPage() {
               onClick={() => setSelectedChain(chain.id)}
             >
               {chain.logo} {chain.name} ({count})
+            </Badge>
+          );
+        })}
+      </div>
+
+      {/* Category filter */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <Badge 
+          variant={selectedCategory === "all" ? "secondary" : "outline"} 
+          className="cursor-pointer"
+          onClick={() => setSelectedCategory("all")}
+        >
+          Alla kategorier
+        </Badge>
+        {CATEGORIES.map((category) => {
+          const count = offersByCategory[category.id] || 0;
+          if (count === 0) return null;
+          return (
+            <Badge 
+              key={category.id}
+              variant={selectedCategory === category.id ? "secondary" : "outline"} 
+              className="cursor-pointer"
+              onClick={() => setSelectedCategory(category.id)}
+            >
+              {category.emoji} {category.name} ({count})
             </Badge>
           );
         })}
