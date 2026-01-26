@@ -148,11 +148,15 @@ export class HemkopScraper extends BaseScraper {
   private async scrollToLoadAll(page: Page): Promise<void> {
     // Scroll down to trigger lazy loading
     for (let i = 0; i < 5; i++) {
-      await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+      await page.evaluate(() => {
+        (globalThis as any).scrollBy(0, (globalThis as any).innerHeight);
+      });
       await page.waitForTimeout(500);
     }
     // Scroll back to top
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => {
+      (globalThis as any).scrollTo(0, 0);
+    });
   }
 
   private async extractOffersFromPage(page: Page, store: Store): Promise<Offer[]> {
