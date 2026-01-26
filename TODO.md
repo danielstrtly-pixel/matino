@@ -28,10 +28,10 @@
 ## 🟡 Butiker & Användarval
 
 ### Butiksval
-- [ ] **Se över hur vi väljer butiker**
+- [x] **Se över hur vi väljer butiker**
   - [x] ICA butikssökning med alla typer (Maxi, Kvantum, etc.)
   - [ ] Hemköp butikssökning
-  - [ ] Spara användarens valda butiker till Supabase
+  - [x] Spara användarens valda butiker till Supabase
   - [ ] Visa erbjudanden från valda butiker
 
 ---

@@ -8,6 +8,21 @@ export async function GET(request: Request) {
     const chainId = searchParams.get('chainId');
     
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // If no specific store/chain requested and user is logged in,
+    // get offers from user's selected stores
+    let userStoreIds: string[] = [];
+    if (!storeId && !chainId && user) {
+      const { data: userStores } = await supabase
+        .from('user_stores')
+        .select('store_id')
+        .eq('user_id', user.id);
+      
+      if (userStores && userStores.length > 0) {
+        userStoreIds = userStores.map((us: any) => us.store_id);
+      }
+    }
     
     let query = supabase
       .from('offers')
@@ -35,10 +50,11 @@ export async function GET(request: Request) {
     
     if (storeId) {
       query = query.eq('store_id', storeId);
-    }
-    
-    if (chainId) {
+    } else if (chainId) {
       query = query.eq('chain_id', chainId);
+    } else if (userStoreIds.length > 0) {
+      // Filter by user's selected stores
+      query = query.in('store_id', userStoreIds);
     }
     
     const { data, error } = await query;
