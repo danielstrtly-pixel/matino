@@ -62,9 +62,9 @@ const CHAINS = [
     logo: "🔵",
     color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
     activeColor: "bg-blue-100 border-blue-400",
-    description: "Lidl - samma erbjudanden i alla butiker",
-    searchable: true,
-    searchPlaceholder: "Sök på butik eller stad (eller välj 'Lidl Sverige' för alla)",
+    description: "Klicka för att lägga till (samma erbjudanden i alla butiker)",
+    searchable: true, // Not used for search, but enables click
+    directAdd: true, // Custom flag for direct add behavior
   },
 ];
 
@@ -131,7 +131,25 @@ export default function StoresPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, activeChain]);
 
-  const openChainSearch = (chain: typeof CHAINS[0]) => {
+  const openChainSearch = async (chain: typeof CHAINS[0]) => {
+    // Lidl has national offers - add directly without search
+    if (chain.id === 'lidl') {
+      const lidlStore: Store = {
+        id: 'lidl-national',
+        name: 'Lidl',
+        chain: 'lidl',
+        externalId: 'national',
+      };
+      
+      // Toggle - if already selected, remove it
+      if (isStoreSelected('lidl-national')) {
+        setSelectedStores(prev => prev.filter(s => s.id !== 'lidl-national'));
+      } else {
+        setSelectedStores(prev => [...prev, lidlStore]);
+      }
+      return;
+    }
+    
     if (chain.searchable) {
       setActiveChain(chain);
       setSearchQuery("");
@@ -246,11 +264,12 @@ export default function StoresPage() {
       <div className="grid md:grid-cols-2 gap-4 mb-8">
         {CHAINS.map((chain) => {
           const count = getSelectedCountForChain(chain.id);
+          const isLidlSelected = chain.id === 'lidl' && isStoreSelected('lidl-national');
           return (
             <Card
               key={chain.id}
               className={`cursor-pointer transition-all border-2 ${
-                count > 0 ? chain.activeColor : chain.color
+                count > 0 || isLidlSelected ? chain.activeColor : chain.color
               } ${!chain.searchable ? "opacity-50" : ""}`}
               onClick={() => openChainSearch(chain)}
             >
@@ -258,11 +277,17 @@ export default function StoresPage() {
                 <CardTitle className="flex items-center gap-3">
                   <span className="text-3xl">{chain.logo}</span>
                   <span>{chain.name}</span>
-                  {count > 0 && (
+                  {chain.id === 'lidl' ? (
+                    isLidlSelected && (
+                      <Badge variant="secondary" className="ml-auto bg-green-100 text-green-800">
+                        ✓ Tillagd
+                      </Badge>
+                    )
+                  ) : count > 0 ? (
                     <Badge variant="secondary" className="ml-auto">
                       {count} butik{count !== 1 ? "er" : ""}
                     </Badge>
-                  )}
+                  ) : null}
                   {!chain.searchable && (
                     <Badge variant="outline" className="ml-auto">
                       Kommer snart
