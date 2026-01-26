@@ -21,32 +21,126 @@ export class ICAScraper extends BaseScraper {
 
   async searchStores(query: string): Promise<ScraperResult<StoreSearchResult>> {
     return this.withTiming(async () => {
+      // Use ICA's mdsastoresearch API - requires a browser session to get auth token
       const page = await this.newPage();
       
       try {
-        // Go to store finder
+        let authToken: string | null = null;
+        let firstPageData: any = null;
+        let apiUrlParam: string | null = null; // Capture the actual URL param used by ICA
+        
+        // Intercept API requests to get auth token and URL param
+        page.on('request', (req) => {
+          const url = req.url();
+          if (url.includes('mdsastoresearch')) {
+            authToken = req.headers()['authorization'] || null;
+            // Extract the url parameter (ICA converts special chars to ASCII)
+            const match = url.match(/url=([^&]+)/);
+            if (match) {
+              apiUrlParam = match[1];
+            }
+          }
+        });
+        
+        page.on('response', async (res) => {
+          if (res.url().includes('mdsastoresearch')) {
+            try {
+              firstPageData = await res.json();
+            } catch(e) {}
+          }
+        });
+        
+        // Go to store search page and search
         await page.goto(this.storeSearchUrl, { waitUntil: 'domcontentloaded' });
         await this.waitForNetworkIdle(page);
-
-        // Accept cookies if prompted
-        await this.acceptCookies(page);
-
-        // Search for stores
-        const searchInput = await page.waitForSelector('input[placeholder*="butik"], input[type="search"], input[name*="search"]', { timeout: 5000 });
-        if (searchInput) {
-          await searchInput.fill(query);
+        
+        // Find search input and enter query
+        const input = await page.$('input[type="search"]');
+        if (input) {
+          await input.fill(query);
           await page.keyboard.press('Enter');
-          await this.waitForNetworkIdle(page);
+          // Wait for search results
+          await page.waitForTimeout(4000);
         }
-
-        // Extract stores from results
-        const stores = await this.extractStoresFromPage(page);
-
-        return { stores, query };
+        
+        if (firstPageData?.storeCards && authToken && apiUrlParam) {
+          const allStoreCards: any[] = [...firstPageData.storeCards];
+          const totalStores = firstPageData.totalNrOfStores || allStoreCards.length;
+          const pageSize = 20;
+          
+          // Fetch remaining pages if needed
+          if (totalStores > pageSize) {
+            const baseApiUrl = `https://apim-pub.gw.ica.se/sverige/digx/mdsastoresearch/v1/page-and-filters`;
+            
+            for (let skip = pageSize; skip < totalStores; skip += pageSize) {
+              try {
+                const apiUrl = `${baseApiUrl}?url=${apiUrlParam}&take=${pageSize}&skip=${skip}`;
+                const res = await fetch(apiUrl, {
+                  headers: {
+                    'Authorization': authToken,
+                    'Accept': 'application/json',
+                  }
+                });
+                if (res.ok) {
+                  const pageData = await res.json() as any;
+                  if (pageData?.storeCards) {
+                    allStoreCards.push(...pageData.storeCards);
+                  }
+                }
+              } catch (e) {
+                console.log(`[ICA] Failed to fetch page at skip=${skip}:`, e);
+              }
+            }
+          }
+          
+          const stores: Store[] = allStoreCards.map((s: any) => ({
+            id: `ica-${s.accountNumber}`,
+            name: s.storeName,
+            address: s.address ? `${s.address.street}, ${s.address.postalCode} ${s.address.city}` : undefined,
+            city: s.address?.city,
+            chain: 'ica' as ChainId,
+            externalId: s.accountNumber,
+            profile: s.profile, // Maxi, Kvantum, Supermarket, Nära
+            offersUrl: s.highlightUrls?.offers?.url,
+          }));
+          
+          return { 
+            stores, 
+            query,
+            totalCount: totalStores 
+          };
+        }
+        
+        // Fallback to old scraper method if API didn't work
+        console.log('[ICA] mdsastoresearch API did not return data, falling back');
+        return this.searchStoresWithScraper(query);
       } finally {
         await page.close();
       }
     });
+  }
+  
+  // Fallback scraper-based search
+  private async searchStoresWithScraper(query: string): Promise<StoreSearchResult> {
+    const page = await this.newPage();
+    
+    try {
+      await page.goto(this.storeSearchUrl, { waitUntil: 'domcontentloaded' });
+      await this.waitForNetworkIdle(page);
+      await this.acceptCookies(page);
+
+      const searchInput = await page.waitForSelector('input[placeholder*="butik"], input[type="search"], input[name*="search"]', { timeout: 5000 });
+      if (searchInput) {
+        await searchInput.fill(query);
+        await page.keyboard.press('Enter');
+        await this.waitForNetworkIdle(page);
+      }
+
+      const stores = await this.extractStoresFromPage(page);
+      return { stores, query };
+    } finally {
+      await page.close();
+    }
   }
 
   private async extractStoresFromPage(page: Page): Promise<Store[]> {

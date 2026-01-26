@@ -9,6 +9,10 @@ export interface Store {
   city?: string;
   chain: ChainId;
   externalId: string;
+  /** ICA store profile: Maxi, Kvantum, Supermarket, Nära */
+  profile?: string;
+  /** Direct URL to offers page */
+  offersUrl?: string;
 }
 
 export interface Offer {
@@ -94,6 +98,8 @@ export interface ScraperResult<T> {
 export interface StoreSearchResult {
   stores: Store[];
   query?: string;
+  /** Total number of stores matching (if paginated) */
+  totalCount?: number;
 }
 
 export interface OffersResult {
