@@ -187,9 +187,28 @@ export class LidlScraper extends BaseScraper {
           const priceEl = item.querySelector('[class*="price"]:not([class*="original"]):not([class*="old"]), [class*="Price"]:not([class*="original"]):not([class*="old"])');
           const priceText = priceEl?.textContent?.trim();
           
-          // Find image
-          const imgEl = item.querySelector('img');
-          const imageUrl = imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src');
+          // Find image - look for product images specifically
+          let imageUrl: string | null = null;
+          const imgElements = item.querySelectorAll('img');
+          for (const img of Array.from(imgElements)) {
+            let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+            // Skip tiny placeholders, icons, and data URLs
+            if (src.startsWith('data:')) continue;
+            if (src.includes('placeholder')) continue;
+            if (src.includes('icon')) continue;
+            // Prefer Lidl's imgproxy images
+            if (src.includes('imgproxy') || src.includes('assets.schwarz')) {
+              // Upgrade thumbnail to larger image (replace w:140 with w:400)
+              src = src.replace(/\/w:\d+\//, '/w:400/');
+              imageUrl = src;
+              break;
+            }
+            // Fallback to any reasonable image
+            const width = parseInt(img.getAttribute('width') || '0', 10);
+            if (width >= 100 || !imageUrl) {
+              imageUrl = src;
+            }
+          }
           
           if (name && priceText) {
             products.push({ name, priceText, imageUrl });
