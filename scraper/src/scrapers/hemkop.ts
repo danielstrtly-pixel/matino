@@ -8,7 +8,10 @@ import type { Store, Offer, ScraperResult, StoreSearchResult, OffersResult, Vali
  * Hemköp is part of Axfood (along with Willys).
  * Store-specific offers are shown on: https://www.hemkop.se/erbjudanden/{store-id}
  * 
- * Store finder: https://www.hemkop.se/hitta-butik
+ * The offers page uses a "tjek-incito" framework with:
+ * - data-role="offer" elements for each product
+ * - aria-label contains product name and price (e.g., "Munkar, SEK 5")
+ * - Price may be split across multiple <p> elements
  */
 export class HemkopScraper extends BaseScraper {
   readonly chainId: ChainId = 'hemkop';
@@ -26,10 +29,8 @@ export class HemkopScraper extends BaseScraper {
         await this.waitForNetworkIdle(page);
         await this.acceptCookies(page);
 
-        // Wait for the Angular app to load
         await page.waitForTimeout(3000);
 
-        // Search for stores
         const searchInput = await page.$('input[type="text"], input[placeholder*="Sök"], input[name*="search"]');
         if (searchInput) {
           await searchInput.fill(query);
@@ -49,7 +50,6 @@ export class HemkopScraper extends BaseScraper {
   private async extractStoresFromPage(page: Page): Promise<Store[]> {
     const stores: Store[] = [];
 
-    // Hemköp uses Angular - look for store cards
     const storeElements = await page.$$('[class*="store-card"], [class*="store-item"], .store-result, li[class*="store"]');
     
     for (const element of storeElements) {
@@ -60,18 +60,15 @@ export class HemkopScraper extends BaseScraper {
         const addressEl = await element.$('[class*="address"], address, .address, p');
         const address = addressEl ? await addressEl.textContent() : null;
 
-        // Extract store ID from link
         const link = await element.$('a[href*="/erbjudanden/"], a[href*="storeId"]');
         let externalId = '';
         
         if (link) {
           const href = await link.getAttribute('href');
-          // URLs like /erbjudanden/4147 or ?storeId=4147
           const match = href?.match(/\/erbjudanden\/(\d+)/) || href?.match(/storeId[=:](\d+)/);
           externalId = match ? match[1] : '';
         }
 
-        // Alternative: check data attributes
         if (!externalId) {
           const dataId = await element.getAttribute('data-store-id') || 
                          await element.getAttribute('data-id');
@@ -92,7 +89,6 @@ export class HemkopScraper extends BaseScraper {
       }
     }
 
-    // Fallback: extract from any links to offer pages
     if (stores.length === 0) {
       const links = await page.$$('a[href*="/erbjudanden/"]');
       const seen = new Set<string>();
@@ -122,7 +118,6 @@ export class HemkopScraper extends BaseScraper {
       const page = await this.newPage();
       
       try {
-        // Try the direct offers URL first
         const offerUrl = `${this.baseUrl}/erbjudanden/${store.externalId}`;
         console.log(`[Hemköp] Loading ${offerUrl}`);
         await page.goto(offerUrl, { waitUntil: 'domcontentloaded' });
@@ -132,29 +127,11 @@ export class HemkopScraper extends BaseScraper {
         // Wait for page to render
         await page.waitForTimeout(3000);
 
-        // Look for "Se alla erbjudanden" or similar button and click it
-        const showAllButton = await page.$('button:has-text("Se alla"), a:has-text("Se alla"), [class*="show-all"], [class*="view-all"]');
-        if (showAllButton) {
-          console.log('[Hemköp] Clicking "Se alla erbjudanden"');
-          await showAllButton.click();
-          await page.waitForTimeout(3000);
-        }
-
         // Scroll to load lazy content
         await this.scrollToLoadAll(page);
 
-        // Try to get page content for debugging
-        const pageContent = await page.content();
-        console.log(`[Hemköp] Page loaded, content length: ${pageContent.length}`);
-
-        // Extract offers
-        let offers = await this.extractOffersFromPage(page, store);
-
-        // If no offers found, try alternative approach - look for product grids
-        if (offers.length === 0) {
-          console.log('[Hemköp] Trying alternative extraction...');
-          offers = await this.extractFromProductGrid(page, store);
-        }
+        // Extract offers using the data-role="offer" approach
+        const offers = await this.extractOffersWithDataRole(page, store);
 
         console.log(`[Hemköp] Found ${offers.length} offers`);
 
@@ -168,180 +145,204 @@ export class HemkopScraper extends BaseScraper {
     });
   }
 
-  private async extractFromProductGrid(page: Page, store: Store): Promise<Offer[]> {
+  /**
+   * Extract offers using data-role="offer" elements
+   * This is the primary method for Hemköp's tjek-incito based offer pages
+   */
+  private async extractOffersWithDataRole(page: Page, store: Store): Promise<Offer[]> {
     const offers: Offer[] = [];
+    
+    // Find all offer elements
+    const offerElements = await page.$$('[data-role="offer"]');
+    console.log(`[Hemköp] Found ${offerElements.length} offer elements`);
 
-    // Hemköp uses a grid layout - look for common product card patterns
-    const productSelectors = [
-      '[data-testid*="product"]',
-      '[class*="ProductCard"]',
-      '[class*="product-card"]',
-      '[class*="offer-card"]',
-      '[class*="campaign"]',
-      'article',
-      '.product',
-      '[class*="Product_"]',
-      '[class*="Offer_"]',
-    ];
-
-    for (const selector of productSelectors) {
-      const elements = await page.$$(selector);
-      console.log(`[Hemköp] Selector "${selector}" found ${elements.length} elements`);
-      
-      if (elements.length > 3 && elements.length < 500) {
-        // This looks like a product grid
-        let debugCount = 0;
-        let skippedEmpty = 0;
-        let skippedNoPrice = 0;
-        let skippedNoName = 0;
+    for (const element of offerElements) {
+      try {
+        // Get aria-label which often contains name and price
+        const ariaLabel = await element.getAttribute('aria-label') || '';
+        const fullText = (await element.textContent()) || '';
         
-        for (const element of elements) {
-          try {
-            // Get all text content
-            const text = await element.textContent() || '';
-
-            // Log first 3 elements for debugging
-            if (debugCount < 3) {
-              console.log(`[Hemköp] Sample element ${debugCount + 1}: "${text.substring(0, 200).replace(/\n/g, ' ')}..."`);
-              
-              // Test price patterns
-              const patterns = [
-                /(\d+)[,.](\d{2})\/(?:st|kg|l|förp)/i,
-                /(\d+)[,:](\d{2})\s*(?:kr|:-)/i,
-                /(\d+)\s*(?:kr|:-)/i,
-              ];
-              for (const p of patterns) {
-                const m = text.match(p);
-                if (m) console.log(`[Hemköp]   Pattern ${p} matched: "${m[0]}"`);
-              }
-              debugCount++;
+        // Extract name from aria-label (everything before ", SEK" or the full label)
+        let name = ariaLabel;
+        let priceFromLabel: number | undefined;
+        
+        // Try to extract price from aria-label: "Munkar, SEK 5" or "Blandfärs, SEK 49.95"
+        const sekMatch = ariaLabel.match(/^(.+?),\s*SEK\s*([\d.]+)$/i);
+        if (sekMatch) {
+          name = sekMatch[1].trim();
+          priceFromLabel = parseFloat(sekMatch[2]);
+          
+          // Check if this is a "X FÖR" deal - if so, divide by X
+          // Look for pattern like "2 FÖR" in the full text
+          const forMatch = fullText.match(/(\d+)\s*FÖR\s*$/i) || fullText.match(/(\d+)\s*FÖR\s/i);
+          if (forMatch) {
+            const quantity = parseInt(forMatch[1]);
+            if (quantity > 1) {
+              // priceFromLabel is the TOTAL price, divide by quantity
+              priceFromLabel = Math.round((priceFromLabel / quantity) * 100) / 100;
             }
-            
-            // Look for Swedish price patterns
-            // IMPORTANT: Check "X för Y" first to avoid matching comparison prices (per kg)
-            const pricePatterns = [
-              /(\d+)\s*för\s*(\d+)/i,                  // 2 för 79, 2 för 129 - CHECK FIRST
-              /(\d+)[,:](\d{2})\s*(?:kr|:-)/i,        // 29,90 kr or 29:90:-
-              /(\d+)\s*(?:kr|:-)/i,                    // 29 kr or 29:-
-              /(\d+)[,.](\d{2})\/st/i,                 // 5,00/st - per piece price (not kg!)
-            ];
-            
-            let priceMatch = null;
-            for (const pattern of pricePatterns) {
-              priceMatch = text.match(pattern);
-              if (priceMatch) break;
-            }
-            if (!priceMatch) {
-              skippedNoPrice++;
-              // Log first few skipped items for debugging
-              if (skippedNoPrice <= 5) {
-                console.log(`[Hemköp] No price match in: "${text.substring(0, 100).replace(/\n/g, ' ')}..."`);
-              }
-              continue;
-            }
-            
-            // Skip empty/placeholder elements
-            if (text.trim().length < 10) {
-              skippedEmpty++;
-              continue;
-            }
-
-            // Get potential product name
-            // Hemköp format: "5,00/st5,00/stMunkarDafgårds, 63g..."
-            // Name usually follows the double price pattern
-            let name: string | null = null;
-            
-            // Handle "Välj och blanda" format: "Välj och blandaKaffe..."
-            const valjOchBlandaMatch = text.match(/Välj och blanda\s*([A-ZÅÄÖ][a-zåäö]+[^0-9]*?)(?:\d|Jmf|Gäller)/i);
-            if (valjOchBlandaMatch) {
-              name = 'Välj och blanda: ' + valjOchBlandaMatch[1].trim();
-            }
-            
-            // Try to extract name from after the price pattern
-            if (!name || name.length < 2) {
-              const afterPriceMatch = text.match(/(?:\d+[,.]?\d*\/(?:st|kg|l|förp)){1,2}(.+?)(?:Lägsta|Erbjudandets|\d+\s*dgr)/i);
-              if (afterPriceMatch) {
-                name = afterPriceMatch[1].trim();
-              }
-            }
-            
-            // Try "X för Y" pattern extraction
-            if (!name || name.length < 2) {
-              const forPatternMatch = text.match(/\d+\s*för\s*\d+\s*kr\s*([A-ZÅÄÖ][^0-9]+?)(?:\d|Jmf|Gäller|$)/i);
-              if (forPatternMatch) {
-                name = forPatternMatch[1].trim();
-              }
-            }
-            
-            // Try heading elements as fallback
-            if (!name || name.length < 2) {
-              const nameEl = await element.$('h1, h2, h3, h4, strong, [class*="name"], [class*="title"]');
-              name = nameEl ? (await nameEl.textContent())?.trim() || null : null;
-            }
-            
-            // Log debug info
-            if (debugCount <= 3) {
-              console.log(`[Hemköp]   Extracted name: "${name}"`);
-            }
-            
-            if (!name || name.length < 2) {
-              skippedNoName++;
-              continue;
-            }
-
-            // Get price - construct proper price string
-            let priceStr = priceMatch[0];
-            let price: number | undefined;
-            let quantity: number | undefined;
-            let quantityPrice: number | undefined;
-            
-            // Handle "X för Y" format (e.g., "2 för 79")
-            const forMatch = priceStr.match(/(\d+)\s*för\s*(\d+)/i);
-            if (forMatch) {
-              quantity = parseInt(forMatch[1]);
-              quantityPrice = parseInt(forMatch[2]);
-              // Store per-unit price for sorting/comparison, but keep quantity info
-              price = Math.round((quantityPrice / quantity) * 100) / 100;
-            } else {
-              price = this.parsePrice(priceStr);
-            }
-            
-            if (!price || price < 1 || price > 10000) continue;
-
-            // Get image
-            const imgEl = await element.$('img');
-            const imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
-
-            // Clean up the name - remove "Klubbpris" prefix and extra info
-            name = name.replace(/^Klubbpris/i, '').trim();
-            name = name.replace(/Ordinarie pris.*$/i, '').trim();
-            name = name.replace(/Ord pris.*$/i, '').trim();
-            
-            // Check for duplicates
-            const existingOffer = offers.find(o => o.name === name && o.offerPrice === price);
-            if (existingOffer) continue;
-
-            offers.push({
-              id: this.generateOfferId('hemkop', store.externalId, name),
-              name,
-              offerPrice: price,
-              quantity,
-              quantityPrice,
-              imageUrl: imageUrl || undefined,
-              storeId: store.id,
-              chain: 'hemkop',
-              scrapedAt: new Date(),
-            });
-
-          } catch (e) {
-            // Skip problematic elements
           }
         }
-
-        if (offers.length > 0) {
-          console.log(`[Hemköp] Stats: ${elements.length} elements, ${skippedEmpty} empty, ${skippedNoPrice} no price, ${skippedNoName} no name, ${offers.length} offers`);
-          break; // Found offers, stop trying selectors
+        
+        // If no name from aria-label, try to find it in paragraphs
+        if (!name || name.length < 2) {
+          const paragraphs = await element.$$('p');
+          for (const p of paragraphs) {
+            const text = (await p.textContent())?.trim() || '';
+            // Skip price-like paragraphs, KLUBBPRIS, KAMPANJPRIS, etc.
+            if (text && 
+                text.length > 2 && 
+                !text.match(/^\d/) && 
+                !text.match(/^\//) &&
+                !text.match(/^KLUBBPRIS$/i) &&
+                !text.match(/^KAMPANJPRIS$/i) &&
+                !text.match(/^veckans/i) &&
+                !text.match(/jfr-pris/i)) {
+              name = text;
+              break;
+            }
+          }
         }
+        
+        if (!name || name.length < 2) continue;
+        
+        // Get the offer price
+        let offerPrice: number | undefined = priceFromLabel;
+        let quantity: number | undefined;
+        let quantityPrice: number | undefined;
+        let unit: string | undefined;
+        
+        // If no price from aria-label, extract from paragraphs
+        if (!offerPrice) {
+          const paragraphs = await element.$$('p');
+          const texts: string[] = [];
+          
+          for (const p of paragraphs) {
+            const text = (await p.textContent())?.trim() || '';
+            if (text) texts.push(text);
+          }
+          
+          // Look for patterns in the collected texts
+          for (let i = 0; i < texts.length; i++) {
+            const text = texts[i];
+            const nextText = texts[i + 1] || '';
+            
+            // "X FÖR" pattern AFTER price (e.g., "50:-" followed by "2 FÖR")
+            // This is the common Hemköp pattern for multi-buy deals
+            const priceBeforeFor = text.match(/^(\d+)(?::-|,(\d{2}))$/);
+            const forAfterPrice = nextText.match(/^(\d+)\s*FÖR$/i);
+            if (priceBeforeFor && forAfterPrice) {
+              const whole = parseInt(priceBeforeFor[1]);
+              const decimal = priceBeforeFor[2] ? parseInt(priceBeforeFor[2]) : 0;
+              const totalPrice = whole + decimal / 100;
+              quantity = parseInt(forAfterPrice[1]);
+              quantityPrice = totalPrice;
+              offerPrice = Math.round((totalPrice / quantity) * 100) / 100;
+              break;
+            }
+            
+            // Price with unit in next element (e.g., "10:-" followed by "/st")
+            const priceMatch = text.match(/^(\d+)(?::-|,(\d{2}))$/);
+            if (priceMatch && nextText.match(/^\/(?:st|kg|l|förp)$/i)) {
+              const whole = parseInt(priceMatch[1]);
+              const decimal = priceMatch[2] ? parseInt(priceMatch[2]) : 0;
+              offerPrice = whole + decimal / 100;
+              unit = nextText.replace('/', '');
+              break;
+            }
+            
+            // Combined price like "149:-/kg"
+            const combinedMatch = text.match(/^(\d+)(?::-|,(\d{2}))?\/(st|kg|l|förp)$/i);
+            if (combinedMatch) {
+              const whole = parseInt(combinedMatch[1]);
+              const decimal = combinedMatch[2] ? parseInt(combinedMatch[2]) : 0;
+              offerPrice = whole + decimal / 100;
+              unit = combinedMatch[3];
+              break;
+            }
+          }
+        }
+        
+        if (!offerPrice || offerPrice < 1 || offerPrice > 10000) continue;
+        
+        // Try to get image
+        const imgEl = await element.$('img');
+        let imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
+        
+        // Also check for background-image in style
+        if (!imageUrl) {
+          const bgDiv = await element.$('[style*="background-image"]');
+          if (bgDiv) {
+            const style = await bgDiv.getAttribute('style') || '';
+            const bgMatch = style.match(/background-image:\s*url\(['"]?([^'"]+)['"]?\)/);
+            if (bgMatch) {
+              imageUrl = bgMatch[1];
+            }
+          }
+        }
+        
+        // Check for membership requirement (fullText already declared above)
+        const requiresMembership = /KLUBBPRIS/i.test(fullText);
+        
+        // Check for max per household
+        let maxPerHousehold: number | undefined;
+        const maxMatch = fullText.match(/Max\s*(\d+)\s*köp/i);
+        if (maxMatch) {
+          maxPerHousehold = parseInt(maxMatch[1]);
+        }
+        
+        // Extract brand/description from the info text
+        let brand: string | undefined;
+        let description: string | undefined;
+        
+        // The info usually follows the product name in a separate paragraph
+        const paragraphs = await element.$$('p');
+        for (const p of paragraphs) {
+          const text = (await p.textContent())?.trim() || '';
+          // Look for pattern like "Brand, XXXg, ..." or product info
+          if (text.match(/^\w+,\s*(?:\d+|ca\s*\d+)/i) && !text.includes('jfr-pris')) {
+            const parts = text.split(',');
+            if (parts.length >= 1) {
+              brand = parts[0].trim();
+              description = text;
+            }
+            break;
+          }
+        }
+        
+        // Clean up name
+        name = name
+          .replace(/^Klubbpris/i, '')
+          .replace(/^Kampanjpris/i, '')
+          .trim();
+        
+        // Create offer
+        const offer: Offer = {
+          id: this.generateOfferId('hemkop', store.externalId, name),
+          name,
+          brand,
+          description,
+          offerPrice,
+          quantity,
+          quantityPrice,
+          unit,
+          imageUrl: imageUrl || undefined,
+          storeId: store.id,
+          chain: 'hemkop',
+          maxPerHousehold,
+          requiresMembership,
+          scrapedAt: new Date(),
+        };
+        
+        // Check for duplicates
+        const isDupe = offers.some(o => o.name === name && o.offerPrice === offerPrice);
+        if (!isDupe) {
+          offers.push(offer);
+        }
+        
+      } catch (e) {
+        // Skip problematic elements
+        console.log(`[Hemköp] Error processing offer:`, e);
       }
     }
 
@@ -349,161 +350,22 @@ export class HemkopScraper extends BaseScraper {
   }
 
   private async scrollToLoadAll(page: Page): Promise<void> {
-    // Scroll down multiple times to trigger lazy loading
     console.log('[Hemköp] Scrolling to load all content...');
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       await page.evaluate(() => {
         (globalThis as any).scrollBy(0, (globalThis as any).innerHeight);
       });
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(500);
     }
-    // Wait for any final content to load
     await page.waitForTimeout(2000);
-    // Scroll back to top
     await page.evaluate(() => {
       (globalThis as any).scrollTo(0, 0);
     });
   }
 
-  private async extractOffersFromPage(page: Page, store: Store): Promise<Offer[]> {
-    const offers: Offer[] = [];
-
-    // Try to find offer elements with various selectors
-    const selectors = [
-      '[class*="offer-card"]',
-      '[class*="product-card"]',
-      '[class*="campaign-product"]',
-      'article[class*="offer"]',
-      '.offer-item',
-      '[data-testid*="offer"]',
-    ];
-
-    let offerElements: any[] = [];
-    for (const selector of selectors) {
-      offerElements = await page.$$(selector);
-      if (offerElements.length > 0) break;
-    }
-
-    for (const element of offerElements) {
-      try {
-        const offer = await this.parseOfferElement(element, store);
-        if (offer) {
-          offers.push(offer);
-        }
-      } catch (e) {
-        // Skip malformed elements
-      }
-    }
-
-    // If no offers found, try to find them in the page content
-    if (offers.length === 0) {
-      // Look for text-based offer patterns
-      const pageContent = await page.content();
-      console.log(`[Hemköp] No offers found for store ${store.externalId}, checking page structure...`);
-      
-      // Try alternative extraction
-      const altOffers = await this.extractOffersAlternative(page, store);
-      offers.push(...altOffers);
-    }
-
-    return offers;
-  }
-
-  private async extractOffersAlternative(page: Page, store: Store): Promise<Offer[]> {
-    const offers: Offer[] = [];
-    
-    // Look for any cards/items with price information
-    const items = await page.$$('[class*="card"], [class*="item"], article, li');
-    
-    for (const item of items) {
-      const text = await item.textContent();
-      
-      // Look for price patterns
-      if (text && /\d+\s*(kr|:-|,\d{2})/i.test(text)) {
-        const priceMatch = text.match(/(\d+(?:[,\.]\d+)?)\s*(kr|:-)/i);
-        if (priceMatch) {
-          const name = text.split(/\d+\s*(kr|:-)/i)[0].trim().slice(0, 100);
-          if (name.length > 3) {
-            offers.push({
-              id: this.generateOfferId('hemkop', store.externalId, name),
-              name,
-              offerPrice: this.parsePrice(priceMatch[0]) || 0,
-              storeId: store.id,
-              chain: 'hemkop',
-              scrapedAt: new Date(),
-            });
-          }
-        }
-      }
-    }
-    
-    return offers.slice(0, 50); // Limit to prevent noise
-  }
-
-  private async parseOfferElement(element: any, store: Store): Promise<Offer | null> {
-    try {
-      // Extract name
-      const nameEl = await element.$('h2, h3, h4, [class*="name"], [class*="title"], .product-name');
-      const name = nameEl ? (await nameEl.textContent())?.trim() : null;
-      if (!name || name.length < 2) return null;
-
-      // Extract brand
-      const brandEl = await element.$('[class*="brand"], [class*="manufacturer"]');
-      const brand = brandEl ? (await brandEl.textContent())?.trim() : undefined;
-
-      // Extract price
-      const priceEl = await element.$('[class*="price"], [class*="pris"], .campaign-price');
-      const priceText = priceEl ? (await priceEl.textContent())?.trim() : '';
-      const offerPrice = this.parsePrice(priceText || '');
-      if (!offerPrice) return null;
-
-      // Extract original price
-      const origPriceEl = await element.$('[class*="original"], [class*="ordinary"], s, del, .was-price');
-      const origPriceText = origPriceEl ? (await origPriceEl.textContent())?.trim() : '';
-      const originalPrice = this.parsePrice(origPriceText || '');
-
-      // Extract savings
-      const savingsEl = await element.$('[class*="discount"], [class*="savings"], [class*="badge"], .save');
-      const savings = savingsEl ? (await savingsEl.textContent())?.trim() : undefined;
-
-      // Extract image
-      const imgEl = await element.$('img');
-      const imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
-
-      // Extract description
-      const descEl = await element.$('[class*="description"], [class*="info"], .details');
-      const description = descEl ? (await descEl.textContent())?.trim() : undefined;
-
-      // Check for max per household
-      const limitEl = await element.$('[class*="limit"], [class*="max"]');
-      const limitText = limitEl ? await limitEl.textContent() : '';
-      const maxMatch = limitText?.match(/max\s*(\d+)/i);
-      const maxPerHousehold = maxMatch ? parseInt(maxMatch[1]) : undefined;
-
-      return {
-        id: this.generateOfferId('hemkop', store.externalId, name),
-        name,
-        brand,
-        description,
-        originalPrice,
-        offerPrice,
-        unit: this.parseUnit(priceText || ''),
-        savings,
-        imageUrl: imageUrl || undefined,
-        storeId: store.id,
-        chain: 'hemkop',
-        maxPerHousehold,
-        scrapedAt: new Date(),
-      };
-    } catch (e) {
-      return null;
-    }
-  }
-
   private async acceptCookies(page: Page): Promise<void> {
     try {
-      // Look for cookie consent buttons
-      const acceptBtn = await page.$('button:has-text("Acceptera"), button:has-text("Godkänn"), [class*="accept"], #onetrust-accept-btn-handler');
+      const acceptBtn = await page.$('#onetrust-accept-btn-handler, button:has-text("Acceptera"), button:has-text("Godkänn")');
       if (acceptBtn) {
         await acceptBtn.click();
         await page.waitForTimeout(500);
@@ -517,18 +379,15 @@ export class HemkopScraper extends BaseScraper {
     const page = await this.newPage();
     
     try {
-      // Test with a known store ID
       await page.goto(`${this.baseUrl}/erbjudanden/4147`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
       
-      const hasContent = await page.$('body');
-      const pageText = await page.textContent('body');
+      const offers = await page.$$('[data-role="offer"]');
       
-      // Check for expected content
-      if (pageText && (pageText.includes('erbjudanden') || pageText.includes('Hemköp'))) {
+      if (offers.length > 0) {
         return {
           valid: true,
-          message: 'Hemköp scraper validation passed',
+          message: `Hemköp scraper validation passed - found ${offers.length} offers`,
           chain: 'hemkop',
           timestamp: new Date(),
         };
@@ -536,7 +395,7 @@ export class HemkopScraper extends BaseScraper {
       
       return {
         valid: false,
-        message: 'Hemköp page structure may have changed',
+        message: 'Hemköp page structure may have changed - no offers found',
         chain: 'hemkop',
         timestamp: new Date(),
       };
