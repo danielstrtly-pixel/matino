@@ -191,6 +191,10 @@ export class HemkopScraper extends BaseScraper {
       if (elements.length > 3 && elements.length < 500) {
         // This looks like a product grid
         let debugCount = 0;
+        let skippedEmpty = 0;
+        let skippedNoPrice = 0;
+        let skippedNoName = 0;
+        
         for (const element of elements) {
           try {
             // Get all text content
@@ -216,6 +220,7 @@ export class HemkopScraper extends BaseScraper {
             // Look for Swedish price patterns - Hemköp uses "5,00/st" format
             const pricePatterns = [
               /(\d+)[,.](\d{2})\/(?:st|kg|l|förp)/i,  // 5,00/st, 29,90/kg
+              /(\d+)\s*för\s*(\d+)/i,                  // 2 för 79, 2 för 129
               /(\d+)[,:](\d{2})\s*(?:kr|:-)/i,        // 29,90 kr or 29:90:-
               /(\d+)\s*(?:kr|:-)/i,                    // 29 kr or 29:-
             ];
@@ -225,20 +230,46 @@ export class HemkopScraper extends BaseScraper {
               priceMatch = text.match(pattern);
               if (priceMatch) break;
             }
-            if (!priceMatch) continue;
+            if (!priceMatch) {
+              skippedNoPrice++;
+              // Log first few skipped items for debugging
+              if (skippedNoPrice <= 5) {
+                console.log(`[Hemköp] No price match in: "${text.substring(0, 100).replace(/\n/g, ' ')}..."`);
+              }
+              continue;
+            }
             
             // Skip empty/placeholder elements
-            if (text.trim().length < 10) continue;
+            if (text.trim().length < 10) {
+              skippedEmpty++;
+              continue;
+            }
 
             // Get potential product name
             // Hemköp format: "5,00/st5,00/stMunkarDafgårds, 63g..."
             // Name usually follows the double price pattern
             let name: string | null = null;
             
+            // Handle "Välj och blanda" format: "Välj och blandaKaffe..."
+            const valjOchBlandaMatch = text.match(/Välj och blanda\s*([A-ZÅÄÖ][a-zåäö]+[^0-9]*?)(?:\d|Jmf|Gäller)/i);
+            if (valjOchBlandaMatch) {
+              name = 'Välj och blanda: ' + valjOchBlandaMatch[1].trim();
+            }
+            
             // Try to extract name from after the price pattern
-            const afterPriceMatch = text.match(/(?:\d+[,.]?\d*\/(?:st|kg|l|förp)){1,2}(.+?)(?:Lägsta|Erbjudandets|\d+\s*dgr)/i);
-            if (afterPriceMatch) {
-              name = afterPriceMatch[1].trim();
+            if (!name || name.length < 2) {
+              const afterPriceMatch = text.match(/(?:\d+[,.]?\d*\/(?:st|kg|l|förp)){1,2}(.+?)(?:Lägsta|Erbjudandets|\d+\s*dgr)/i);
+              if (afterPriceMatch) {
+                name = afterPriceMatch[1].trim();
+              }
+            }
+            
+            // Try "X för Y" pattern extraction
+            if (!name || name.length < 2) {
+              const forPatternMatch = text.match(/\d+\s*för\s*\d+\s*kr\s*([A-ZÅÄÖ][^0-9]+?)(?:\d|Jmf|Gäller|$)/i);
+              if (forPatternMatch) {
+                name = forPatternMatch[1].trim();
+              }
             }
             
             // Try heading elements as fallback
@@ -252,17 +283,36 @@ export class HemkopScraper extends BaseScraper {
               console.log(`[Hemköp]   Extracted name: "${name}"`);
             }
             
-            if (!name || name.length < 2) continue;
+            if (!name || name.length < 2) {
+              skippedNoName++;
+              continue;
+            }
 
             // Get price - construct proper price string
             let priceStr = priceMatch[0];
-            const price = this.parsePrice(priceStr);
+            let price: number | undefined;
+            
+            // Handle "X för Y" format (e.g., "2 för 79")
+            const forMatch = priceStr.match(/(\d+)\s*för\s*(\d+)/i);
+            if (forMatch) {
+              const count = parseInt(forMatch[1]);
+              const total = parseInt(forMatch[2]);
+              price = Math.round((total / count) * 100) / 100;
+            } else {
+              price = this.parsePrice(priceStr);
+            }
+            
             if (!price || price < 1 || price > 10000) continue;
 
             // Get image
             const imgEl = await element.$('img');
             const imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
 
+            // Clean up the name - remove "Klubbpris" prefix and extra info
+            name = name.replace(/^Klubbpris/i, '').trim();
+            name = name.replace(/Ordinarie pris.*$/i, '').trim();
+            name = name.replace(/Ord pris.*$/i, '').trim();
+            
             // Check for duplicates
             const existingOffer = offers.find(o => o.name === name && o.offerPrice === price);
             if (existingOffer) continue;
@@ -282,7 +332,10 @@ export class HemkopScraper extends BaseScraper {
           }
         }
 
-        if (offers.length > 0) break; // Found offers, stop trying selectors
+        if (offers.length > 0) {
+          console.log(`[Hemköp] Stats: ${elements.length} elements, ${skippedEmpty} empty, ${skippedNoPrice} no price, ${skippedNoName} no name, ${offers.length} offers`);
+          break; // Found offers, stop trying selectors
+        }
       }
     }
 
@@ -290,13 +343,16 @@ export class HemkopScraper extends BaseScraper {
   }
 
   private async scrollToLoadAll(page: Page): Promise<void> {
-    // Scroll down to trigger lazy loading
-    for (let i = 0; i < 5; i++) {
+    // Scroll down multiple times to trigger lazy loading
+    console.log('[Hemköp] Scrolling to load all content...');
+    for (let i = 0; i < 10; i++) {
       await page.evaluate(() => {
         (globalThis as any).scrollBy(0, (globalThis as any).innerHeight);
       });
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(800);
     }
+    // Wait for any final content to load
+    await page.waitForTimeout(2000);
     // Scroll back to top
     await page.evaluate(() => {
       (globalThis as any).scrollTo(0, 0);
