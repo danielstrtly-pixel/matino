@@ -9,12 +9,13 @@
   - [ ] Lägg till Willys-scraper
 
 ### Prishantering
-- [ ] **Felaktiga priser** - Behöver robust regelverk för pristolkning
-  - [ ] Hantera "X för Y kr" korrekt
-  - [ ] Hantera "kr/kg" vs "kr/st"
-  - [ ] Hantera jämförpriser vs erbjudandepris
-  - [ ] Hantera "Ord. pris" / "Klubbpris" skillnad
-  - [ ] Validera att priser är rimliga (inte negativa, inte absurt höga)
+- [x] **Hemköp prisregler** (95% accuracy)
+  - [x] Använd `aria-label` för namn och pris
+  - [x] Hantera "X för Y kr" korrekt (dividera totalpris)
+  - [x] Skippa jämförpriser (jfr-pris X/kg)
+  - [x] Hantera delade priselement ("10:-" + "/st")
+- [ ] **ICA prisregler** - Behöver liknande fix
+- [ ] Validera att priser är rimliga (inte negativa, inte absurt höga)
 
 ### Kategorisering
 - [ ] **Gruppera matvaror bättre**
