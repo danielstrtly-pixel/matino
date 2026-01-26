@@ -1,6 +1,7 @@
 import { Page } from 'playwright';
 import { BaseScraper } from './base';
 import type { Store, Offer, ScraperResult, StoreSearchResult, OffersResult, ValidationResult, ChainId } from '../types';
+import { getCategory } from '../categories';
 
 /**
  * ICA Scraper
@@ -382,10 +383,11 @@ export class ICAScraper extends BaseScraper {
       return offers;
     }, { id: store.id, externalId: store.externalId });
     
-    // Convert string dates to Date objects
+    // Convert string dates to Date objects and add category
     return rawOffers.map(o => ({
       ...o,
       scrapedAt: new Date(o.scrapedAt),
+      category: getCategory(undefined, o.name, 'ica'),
     })) as Offer[];
   }
 
@@ -427,6 +429,9 @@ export class ICAScraper extends BaseScraper {
       const memberEl = await element.$('[class*="stammis"], [class*="member"]');
       const requiresMembership = !!memberEl;
 
+      // Classify category based on product name
+      const category = getCategory(undefined, name, 'ica');
+
       return {
         id: this.generateOfferId('ica', store.externalId, name),
         name,
@@ -439,6 +444,7 @@ export class ICAScraper extends BaseScraper {
         imageUrl: imageUrl || undefined,
         storeId: store.id,
         chain: 'ica',
+        category,
         requiresMembership,
         scrapedAt: new Date(),
       };

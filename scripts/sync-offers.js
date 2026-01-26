@@ -31,14 +31,15 @@ async function syncToDb(client, storeId, offers) {
   // Insert new offers
   for (const o of offers) {
     await client.query(`
-      INSERT INTO offers (id, store_id, chain_id, name, brand, offer_price, quantity, quantity_price, original_price, unit, image_url, requires_membership, scraped_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      INSERT INTO offers (id, store_id, chain_id, name, brand, offer_price, quantity, quantity_price, original_price, unit, image_url, category, requires_membership, scraped_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         offer_price = EXCLUDED.offer_price,
         quantity = EXCLUDED.quantity,
         quantity_price = EXCLUDED.quantity_price,
         image_url = EXCLUDED.image_url,
+        category = EXCLUDED.category,
         scraped_at = EXCLUDED.scraped_at
     `, [
       o.id,
@@ -52,6 +53,7 @@ async function syncToDb(client, storeId, offers) {
       o.originalPrice || null,
       o.unit || null,
       o.imageUrl || null,
+      o.category || null,
       o.requiresMembership || false,
       o.scrapedAt
     ]);

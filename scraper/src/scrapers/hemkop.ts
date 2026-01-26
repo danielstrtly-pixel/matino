@@ -1,6 +1,7 @@
 import { Page } from 'playwright';
 import { BaseScraper } from './base';
 import type { Store, Offer, ScraperResult, StoreSearchResult, OffersResult, ValidationResult, ChainId } from '../types';
+import { getCategory } from '../categories';
 
 /**
  * Hemköp Scraper
@@ -233,6 +234,9 @@ export class HemkopScraper extends BaseScraper {
           const fullText = (await container.textContent()) || '';
           const requiresMembership = /klubbpris/i.test(fullText);
           
+          // Classify category based on product name
+          const category = getCategory(undefined, name, 'hemkop');
+          
           const offer: Offer = {
             id: this.generateOfferId('hemkop', store.externalId, name),
             name,
@@ -242,6 +246,7 @@ export class HemkopScraper extends BaseScraper {
             imageUrl: imageUrl || undefined,
             storeId: store.id,
             chain: 'hemkop',
+            category,
             requiresMembership,
             scrapedAt: new Date(),
           };
@@ -517,6 +522,9 @@ export class HemkopScraper extends BaseScraper {
           .replace(/^Kampanjpris/i, '')
           .trim();
         
+        // Classify category based on product name
+        const category = getCategory(undefined, name, 'hemkop');
+        
         // Create offer
         const offer: Offer = {
           id: this.generateOfferId('hemkop', store.externalId, name),
@@ -530,6 +538,7 @@ export class HemkopScraper extends BaseScraper {
           imageUrl: imageUrl || undefined,
           storeId: store.id,
           chain: 'hemkop',
+          category,
           maxPerHousehold,
           requiresMembership,
           scrapedAt: new Date(),
