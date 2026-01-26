@@ -159,60 +159,67 @@ export default function DealsPage() {
         </div>
       )}
 
-      {/* Deals grid - 2 cols mobile, 8 cols desktop */}
+      {/* Deals grid - consistent card heights */}
       {!loading && !error && filteredOffers.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {filteredOffers.map((offer) => {
             const chain = getChainConfig(offer.chain);
+            const priceText = offer.quantity && offer.quantityPrice 
+              ? `${offer.quantity} för ${offer.quantityPrice} kr`
+              : `${offer.offerPrice} kr`;
+            
             return (
-              <Card key={offer.id} className="hover:shadow-md transition-shadow overflow-hidden">
-                {offer.imageUrl && (
-                  <div className="aspect-square bg-gray-100 relative">
+              <Card key={offer.id} className="hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
+                {/* Image container - fixed aspect ratio */}
+                <div className="aspect-square bg-gray-50 relative flex-shrink-0">
+                  {offer.imageUrl ? (
                     <img 
                       src={offer.imageUrl} 
                       alt={offer.name}
-                      className="w-full h-full object-contain p-2"
+                      className="w-full h-full object-contain p-3"
                       loading="lazy"
                     />
-                    <Badge className="absolute top-1 right-1 bg-green-600 text-xs">
-                      {offer.quantity && offer.quantityPrice 
-                        ? `${offer.quantity} för ${offer.quantityPrice} kr`
-                        : `${offer.offerPrice} kr`}
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader className="p-2 pb-1">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        {offer.chainLogo || chain?.logo} {offer.storeName || chain?.name}
-                      </p>
-                      <CardTitle className="text-sm mt-1 line-clamp-2 leading-tight">{offer.name}</CardTitle>
-                      {offer.brand && (
-                        <p className="text-xs text-gray-500 truncate">{offer.brand}</p>
-                      )}
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">
+                      🛒
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0 px-2 pb-2">
-                  <div className="flex flex-col">
-                    <span className="text-base font-bold text-green-600">
-                      {offer.quantity && offer.quantityPrice 
-                        ? `${offer.quantity} för ${offer.quantityPrice} kr`
-                        : `${offer.offerPrice} kr`}
+                  )}
+                  {/* Price badge - always visible */}
+                  <Badge className="absolute top-2 right-2 bg-green-600 hover:bg-green-600 text-white font-semibold text-xs px-2 py-1 shadow-sm">
+                    {priceText}
+                  </Badge>
+                  {/* Membership badge */}
+                  {offer.requiresMembership && (
+                    <Badge variant="secondary" className="absolute bottom-2 left-2 text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                      Klubbpris
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Content - fixed height with truncation */}
+                <div className="p-3 flex flex-col flex-grow">
+                  {/* Store name */}
+                  <p className="text-xs text-gray-400 truncate mb-1">
+                    {chain?.logo} {offer.storeName || chain?.name}
+                  </p>
+                  
+                  {/* Product name - 2 lines max */}
+                  <h3 className="font-medium text-sm leading-snug line-clamp-2 min-h-[2.5rem]">
+                    {offer.name}
+                  </h3>
+                  
+                  {/* Price at bottom */}
+                  <div className="mt-auto pt-2">
+                    <span className="text-lg font-bold text-green-600">
+                      {priceText}
                     </span>
-                    {offer.originalPrice && (
-                      <span className="text-gray-400 line-through text-xs">
+                    {offer.originalPrice && offer.originalPrice > offer.offerPrice && (
+                      <span className="text-gray-400 line-through text-sm ml-2">
                         {offer.originalPrice} kr
                       </span>
                     )}
                   </div>
-                  {offer.requiresMembership && (
-                    <Badge variant="outline" className="mt-1 text-xs">
-                      🏷️ Klubbpris
-                    </Badge>
-                  )}
-                </CardContent>
+                </div>
               </Card>
             );
           })}
