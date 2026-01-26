@@ -45,9 +45,9 @@
   - [ ] Felhantering
 
 ### Logga ut
-- [ ] **Implementera utloggning**
-  - [ ] Logout-knapp i menyn
-  - [ ] Rensa session
+- [x] **Implementera utloggning**
+  - [x] Logout-knapp i menyn
+  - [x] Rensa session (via /auth/signout)
 
 ### Preferenser
 - [ ] **Spara och förstå användarens preferenser**

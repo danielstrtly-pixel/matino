@@ -76,6 +76,27 @@ export default function StoresPage() {
   const [searchResults, setSearchResults] = useState<Store[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // Load user's saved stores on mount
+  useEffect(() => {
+    const loadUserStores = async () => {
+      try {
+        const res = await fetch("/api/user/stores");
+        if (res.ok) {
+          const data = await res.json();
+          setSelectedStores(data.stores || []);
+        }
+      } catch (e) {
+        console.error("Failed to load user stores:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadUserStores();
+  }, []);
 
   // Search stores when query changes
   useEffect(() => {
@@ -135,14 +156,46 @@ export default function StoresPage() {
   };
 
   const handleSave = async () => {
-    // TODO: Save to Supabase
-    console.log("Saving stores:", selectedStores);
-    alert(`Sparade ${selectedStores.length} butiker!`);
+    setIsSaving(true);
+    setSaveMessage(null);
+    
+    try {
+      const res = await fetch("/api/user/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeIds: selectedStores.map((s) => s.id),
+        }),
+      });
+
+      if (res.ok) {
+        setSaveMessage("✅ Butiker sparade!");
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setSaveMessage("❌ Kunde inte spara");
+      }
+    } catch (e) {
+      console.error("Failed to save stores:", e);
+      setSaveMessage("❌ Något gick fel");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const removeStore = (storeId: string) => {
     setSelectedStores((prev) => prev.filter((s) => s.id !== storeId));
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="text-center py-12">
+          <div className="text-2xl mb-2">🔄</div>
+          <p className="text-gray-500">Laddar dina butiker...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -209,11 +262,16 @@ export default function StoresPage() {
       )}
 
       <div className="flex justify-between items-center">
-        <p className="text-gray-600">
-          {selectedStores.length} butik{selectedStores.length !== 1 ? "er" : ""} vald{selectedStores.length !== 1 ? "a" : ""}
-        </p>
-        <Button onClick={handleSave} disabled={selectedStores.length === 0}>
-          Spara val
+        <div className="flex items-center gap-4">
+          <p className="text-gray-600">
+            {selectedStores.length} butik{selectedStores.length !== 1 ? "er" : ""} vald{selectedStores.length !== 1 ? "a" : ""}
+          </p>
+          {saveMessage && (
+            <span className="text-sm">{saveMessage}</span>
+          )}
+        </div>
+        <Button onClick={handleSave} disabled={selectedStores.length === 0 || isSaving}>
+          {isSaving ? "Sparar..." : "Spara val"}
         </Button>
       </div>
 
