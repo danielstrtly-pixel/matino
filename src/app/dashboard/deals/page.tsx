@@ -28,8 +28,8 @@ interface Offer {
 const CHAINS = [
   { id: 'ica', name: 'ICA', logo: '🔴', supported: true },
   { id: 'hemkop', name: 'Hemköp', logo: '🟠', supported: true },
-  { id: 'coop', name: 'Coop', logo: '🟢', supported: false },
-  { id: 'lidl', name: 'Lidl', logo: '🔵', supported: false },
+  { id: 'coop', name: 'Coop', logo: '🟢', supported: true },
+  { id: 'lidl', name: 'Lidl', logo: '🔵', supported: true },
 ];
 
 const CATEGORIES = [
