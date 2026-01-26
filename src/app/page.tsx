@@ -27,7 +27,7 @@ export default function Home() {
           <Link href="/login" className="text-charcoal/70 hover:text-charcoal transition-colors hidden sm:block">
             Logga in
           </Link>
-          <Button asChild className="bg-fresh hover:bg-fresh-dark text-white rounded-full px-6">
+          <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-6">
             <Link href="/signup">Kom igång</Link>
           </Button>
         </div>
@@ -64,9 +64,30 @@ export default function Home() {
           
           {/* Feature cards floating */}
           <div className="relative hidden lg:block">
-            <div className="bg-cream-light rounded-3xl p-8 shadow-lg">
-              <div className="text-8xl mb-4">🥗</div>
-              <p className="text-charcoal/50 text-sm">Illustration placeholder</p>
+            <div className="bg-cream-light rounded-3xl p-8 shadow-lg overflow-hidden">
+              {/* Food emoji grid */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white rounded-2xl p-4 text-center shadow-sm">
+                  <div className="text-4xl mb-2">🥦</div>
+                  <p className="text-xs text-charcoal/50">Grönsaker</p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 text-center shadow-sm">
+                  <div className="text-4xl mb-2">🍗</div>
+                  <p className="text-xs text-charcoal/50">Protein</p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 text-center shadow-sm">
+                  <div className="text-4xl mb-2">🍝</div>
+                  <p className="text-xs text-charcoal/50">Kolhydrater</p>
+                </div>
+                <div className="bg-orange-light rounded-2xl p-4 text-center col-span-2">
+                  <p className="text-sm font-medium text-orange">🏷️ 3 för 2</p>
+                  <p className="text-xs text-charcoal/50">Veckans deal</p>
+                </div>
+                <div className="bg-fresh-light rounded-2xl p-4 text-center">
+                  <div className="text-2xl">📋</div>
+                  <p className="text-xs text-charcoal/50">Meny</p>
+                </div>
+              </div>
             </div>
             
             {/* Floating badge 1 */}
@@ -75,19 +96,19 @@ export default function Home() {
                 <span className="text-fresh">✓</span>
               </div>
               <div>
-                <p className="font-semibold text-charcoal text-sm">100% Färskt</p>
-                <p className="text-xs text-charcoal/50">Alltid uppdaterat</p>
+                <p className="font-semibold text-charcoal text-sm">Alltid aktuellt</p>
+                <p className="text-xs text-charcoal/50">Uppdateras dagligen</p>
               </div>
             </div>
             
             {/* Floating badge 2 */}
             <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl p-4 shadow-lg flex items-center gap-3">
               <div className="w-10 h-10 bg-orange-light rounded-full flex items-center justify-center">
-                <span className="text-orange">🚀</span>
+                <span className="text-orange">💰</span>
               </div>
               <div>
-                <p className="font-semibold text-charcoal text-sm">Snabb leverans</p>
-                <p className="text-xs text-charcoal/50">Direkt till dig</p>
+                <p className="font-semibold text-charcoal text-sm">Spara pengar</p>
+                <p className="text-xs text-charcoal/50">Bästa erbjudanden</p>
               </div>
             </div>
           </div>
