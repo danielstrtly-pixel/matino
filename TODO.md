@@ -32,7 +32,7 @@
   - [x] ICA butikssökning med alla typer (Maxi, Kvantum, etc.)
   - [ ] Hemköp butikssökning
   - [x] Spara användarens valda butiker till Supabase
-  - [ ] Visa erbjudanden från valda butiker
+  - [x] Visa erbjudanden från valda butiker
 
 ---
 
