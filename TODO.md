@@ -50,11 +50,11 @@
   - [x] Rensa session (via /auth/signout)
 
 ### Preferenser
-- [ ] **Spara och förstå användarens preferenser**
-  - [ ] Likes/dislikes
-  - [ ] Allergier
-  - [ ] Hushållsstorlek
-  - [ ] Matpreferenser (vegetarisk, etc.)
+- [x] **Spara och förstå användarens preferenser**
+  - [x] Likes/dislikes
+  - [x] Allergier
+  - [x] Hushållsstorlek
+  - [ ] Matpreferenser (vegetarisk, etc.) - kommer med AI-meny
 
 ---
 
