@@ -78,6 +78,8 @@ export default function StoresPage() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Load user's saved stores on mount
@@ -169,8 +171,40 @@ export default function StoresPage() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setSaveMessage("✅ Butiker sparade!");
-        setTimeout(() => setSaveMessage(null), 3000);
+        
+        // If there are new stores, sync their offers
+        if (data.newStoreIds && data.newStoreIds.length > 0) {
+          setIsSaving(false);
+          setIsSyncing(true);
+          setSyncProgress(`Hämtar erbjudanden för ${data.newStoreIds.length} nya butik${data.newStoreIds.length > 1 ? 'er' : ''}...`);
+          
+          try {
+            const syncRes = await fetch("/api/stores/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ storeIds: data.newStoreIds }),
+            });
+            
+            if (syncRes.ok) {
+              const syncData = await syncRes.json();
+              setSyncProgress(null);
+              setSaveMessage(`✅ ${syncData.totalSynced} erbjudanden hämtade!`);
+            } else {
+              setSyncProgress(null);
+              setSaveMessage("⚠️ Sparade, men kunde inte hämta erbjudanden");
+            }
+          } catch (e) {
+            console.error("Sync failed:", e);
+            setSyncProgress(null);
+            setSaveMessage("⚠️ Sparade, men synk misslyckades");
+          } finally {
+            setIsSyncing(false);
+          }
+        }
+        
+        setTimeout(() => setSaveMessage(null), 5000);
       } else {
         setSaveMessage("❌ Kunde inte spara");
       }
@@ -269,9 +303,12 @@ export default function StoresPage() {
           {saveMessage && (
             <span className="text-sm">{saveMessage}</span>
           )}
+          {syncProgress && (
+            <span className="text-sm text-orange-600 animate-pulse">{syncProgress}</span>
+          )}
         </div>
-        <Button onClick={handleSave} disabled={selectedStores.length === 0 || isSaving}>
-          {isSaving ? "Sparar..." : "Spara val"}
+        <Button onClick={handleSave} disabled={selectedStores.length === 0 || isSaving || isSyncing}>
+          {isSyncing ? "Hämtar erbjudanden..." : isSaving ? "Sparar..." : "Spara val"}
         </Button>
       </div>
 

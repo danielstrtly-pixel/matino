@@ -53,7 +53,7 @@ export async function GET() {
   }
 }
 
-// POST: Save user's selected stores
+// POST: Save user's selected stores and trigger sync for new ones
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -68,6 +68,15 @@ export async function POST(request: Request) {
     if (!Array.isArray(storeIds)) {
       return NextResponse.json({ error: "storeIds must be an array" }, { status: 400 });
     }
+
+    // Get current selections to find new stores
+    const { data: currentStores } = await supabase
+      .from("user_stores")
+      .select("store_id")
+      .eq("user_id", user.id);
+
+    const currentStoreIds = new Set((currentStores || []).map((s: { store_id: string }) => s.store_id));
+    const newStoreIds = storeIds.filter((id: string) => !currentStoreIds.has(id));
 
     // Delete existing selections
     const { error: deleteError } = await supabase
@@ -97,7 +106,12 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, count: storeIds.length });
+    // Return info about new stores that need syncing
+    return NextResponse.json({ 
+      success: true, 
+      count: storeIds.length,
+      newStoreIds, // Frontend can use this to trigger sync with loading state
+    });
   } catch (error) {
     console.error("Error in POST /api/user/stores:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

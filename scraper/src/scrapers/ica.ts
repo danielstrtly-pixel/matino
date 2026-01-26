@@ -210,31 +210,38 @@ export class ICAScraper extends BaseScraper {
       const page = await this.newPage();
       
       try {
-        // Go directly to store's offer page
-        const storeOfferUrl = `${this.baseUrl}/butiker/${store.externalId}/erbjudanden`;
+        // Use store's offers URL if available, otherwise construct it
+        const storeOfferUrl = store.offersUrl || 
+          `${this.baseUrl}/erbjudanden/ica-${store.externalId}/`;
+        
+        console.log(`[ICA] Loading offers from: ${storeOfferUrl}`);
         await page.goto(storeOfferUrl, { waitUntil: 'domcontentloaded' });
         await this.waitForNetworkIdle(page);
 
         // Accept cookies
         await this.acceptCookies(page);
 
-        // Wait for offers to load
-        await page.waitForTimeout(3000);
+        // Click on "I butik" tab to get store-specific offers (not just national)
+        try {
+          const inStoreTab = await page.$('button:has-text("I butik"), [role="tab"]:has-text("I butik")');
+          if (inStoreTab) {
+            console.log('[ICA] Clicking "I butik" tab');
+            await inStoreTab.click();
+            await page.waitForTimeout(2000);
+          }
+        } catch (e) {
+          console.log('[ICA] No "I butik" tab found, continuing with default view');
+        }
+
+        // Scroll to load all offers (lazy loading)
+        await this.scrollToLoadAll(page);
 
         // Extract offers
         const offers = await this.extractOffersFromPage(page, store);
-
-        // Also get national offers
-        await page.goto(this.offersUrl, { waitUntil: 'domcontentloaded' });
-        await this.waitForNetworkIdle(page);
-        const nationalOffers = await this.extractOffersFromPage(page, store);
-
-        // Combine and dedupe
-        const allOffers = [...offers, ...nationalOffers];
-        const uniqueOffers = this.dedupeOffers(allOffers);
+        console.log(`[ICA] Extracted ${offers.length} offers`);
 
         return {
-          offers: uniqueOffers,
+          offers,
           store,
         };
       } finally {
@@ -243,11 +250,54 @@ export class ICAScraper extends BaseScraper {
     });
   }
 
+  private async scrollToLoadAll(page: Page): Promise<void> {
+    let previousHeight = 0;
+    let scrollAttempts = 0;
+    const maxScrolls = 10;
+
+    while (scrollAttempts < maxScrolls) {
+      const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+      
+      if (currentHeight === previousHeight) {
+        break; // No more content to load
+      }
+      
+      previousHeight = currentHeight;
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(1500);
+      scrollAttempts++;
+    }
+    
+    // Scroll back to top
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+
   private async extractOffersFromPage(page: Page, store: Store): Promise<Offer[]> {
     const offers: Offer[] = [];
 
-    // Find offer cards/items
-    const offerElements = await page.$$('[data-testid*="offer"], [class*="offer-card"], [class*="product-card"], article[class*="offer"]');
+    // ICA uses various card structures - try multiple selectors
+    const selectors = [
+      '[data-testid*="offer"]',
+      '[data-testid*="product"]', 
+      'article[class*="offer"]',
+      'article[class*="product"]',
+      'div[class*="OfferCard"]',
+      'div[class*="ProductCard"]',
+      'a[href*="/erbjudanden/"] > div',
+      '[class*="offer-card"]',
+      '[class*="product-card"]',
+    ];
+
+    let offerElements: any[] = [];
+    
+    for (const selector of selectors) {
+      const elements = await page.$$(selector);
+      if (elements.length > offerElements.length) {
+        offerElements = elements;
+      }
+    }
+
+    console.log(`[ICA] Found ${offerElements.length} potential offer elements`);
 
     for (const element of offerElements) {
       try {
@@ -260,21 +310,83 @@ export class ICAScraper extends BaseScraper {
       }
     }
 
-    // Alternative: extract from structured content
-    if (offers.length === 0) {
-      const sections = await page.$$('section, div[class*="offers"]');
-      for (const section of sections) {
-        const items = await section.$$('article, div[class*="item"], li');
-        for (const item of items) {
-          const offer = await this.parseOfferElement(item, store);
-          if (offer) {
-            offers.push(offer);
-          }
-        }
+    // If still no offers, try extracting from page content directly
+    if (offers.length < 10) {
+      console.log('[ICA] Trying alternative extraction method');
+      const altOffers = await this.extractOffersAlternative(page, store);
+      if (altOffers.length > offers.length) {
+        return altOffers;
       }
     }
 
     return offers;
+  }
+
+  private async extractOffersAlternative(page: Page, store: Store): Promise<Offer[]> {
+    // Extract offers by looking at the page structure directly
+    const rawOffers = await page.evaluate((storeData: { id: string; externalId: string }) => {
+      const offers: Array<{
+        id: string;
+        name: string;
+        brand: string | undefined;
+        offerPrice: number;
+        imageUrl: string | undefined;
+        storeId: string;
+        chain: string;
+        requiresMembership: boolean;
+        scrapedAt: string;
+      }> = [];
+      
+      // Find all elements that look like offer cards (have price + name)
+      const allElements = Array.from(document.querySelectorAll('article, [class*="card"], [class*="Card"]'));
+      
+      for (const el of allElements) {
+        const text = el.textContent || '';
+        
+        // Must have a price pattern (XX:- or XX kr)
+        const priceMatch = text.match(/(\d+)[:\s]*[-–]?\s*(?:kr|\/)/i) || text.match(/(\d+)\s*kr/i);
+        if (!priceMatch) continue;
+        
+        // Get all text nodes
+        const h2 = el.querySelector('h2, h3, h4');
+        const name = h2?.textContent?.trim();
+        if (!name || name.length < 2) continue;
+        
+        // Get image
+        const img = el.querySelector('img');
+        const imageUrl = img?.getAttribute('src') || undefined;
+        
+        // Check for Stammis (member) price
+        const isStammis = text.toLowerCase().includes('stammis');
+        
+        // Get brand/description from paragraph
+        const p = el.querySelector('p');
+        const brand = p?.textContent?.trim();
+        
+        const price = parseInt(priceMatch[1], 10);
+        if (price > 0 && price < 10000) {
+          offers.push({
+            id: `ica-${storeData.externalId}-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+            name,
+            brand,
+            offerPrice: price,
+            imageUrl,
+            storeId: storeData.id,
+            chain: 'ica',
+            requiresMembership: isStammis,
+            scrapedAt: new Date().toISOString(),
+          });
+        }
+      }
+      
+      return offers;
+    }, { id: store.id, externalId: store.externalId });
+    
+    // Convert string dates to Date objects
+    return rawOffers.map(o => ({
+      ...o,
+      scrapedAt: new Date(o.scrapedAt),
+    })) as Offer[];
   }
 
   private async parseOfferElement(element: any, store: Store): Promise<Offer | null> {

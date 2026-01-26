@@ -5,6 +5,7 @@ const DB_URL = 'postgresql://postgres:LodsKzaNsEuu8m@db.gepkjyzqrjkuminphpxm.sup
 
 const STORES = [
   { id: 'hemkop-4147', name: 'Hemköp Östermalmstorg', chain: 'hemkop', externalId: '4147' },
+  { id: 'ica-1004164', name: 'ICA Supermarket Esplanad, Sthlm', chain: 'ica', externalId: '1004164', offersUrl: 'https://www.ica.se/erbjudanden/ica-supermarket-esplanad-sthlm-1004164/' },
 ];
 
 async function scrapeStore(store) {
