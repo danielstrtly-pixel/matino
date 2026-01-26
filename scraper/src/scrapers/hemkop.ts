@@ -122,18 +122,41 @@ export class HemkopScraper extends BaseScraper {
       const page = await this.newPage();
       
       try {
+        // Try the direct offers URL first
         const offerUrl = `${this.baseUrl}/erbjudanden/${store.externalId}`;
+        console.log(`[Hemköp] Loading ${offerUrl}`);
         await page.goto(offerUrl, { waitUntil: 'domcontentloaded' });
         await this.waitForNetworkIdle(page);
         await this.acceptCookies(page);
 
-        // Wait for Angular to render
-        await page.waitForTimeout(4000);
+        // Wait for page to render
+        await page.waitForTimeout(3000);
+
+        // Look for "Se alla erbjudanden" or similar button and click it
+        const showAllButton = await page.$('button:has-text("Se alla"), a:has-text("Se alla"), [class*="show-all"], [class*="view-all"]');
+        if (showAllButton) {
+          console.log('[Hemköp] Clicking "Se alla erbjudanden"');
+          await showAllButton.click();
+          await page.waitForTimeout(3000);
+        }
 
         // Scroll to load lazy content
         await this.scrollToLoadAll(page);
 
-        const offers = await this.extractOffersFromPage(page, store);
+        // Try to get page content for debugging
+        const pageContent = await page.content();
+        console.log(`[Hemköp] Page loaded, content length: ${pageContent.length}`);
+
+        // Extract offers
+        let offers = await this.extractOffersFromPage(page, store);
+
+        // If no offers found, try alternative approach - look for product grids
+        if (offers.length === 0) {
+          console.log('[Hemköp] Trying alternative extraction...');
+          offers = await this.extractFromProductGrid(page, store);
+        }
+
+        console.log(`[Hemköp] Found ${offers.length} offers`);
 
         return {
           offers,
@@ -143,6 +166,127 @@ export class HemkopScraper extends BaseScraper {
         await page.close();
       }
     });
+  }
+
+  private async extractFromProductGrid(page: Page, store: Store): Promise<Offer[]> {
+    const offers: Offer[] = [];
+
+    // Hemköp uses a grid layout - look for common product card patterns
+    const productSelectors = [
+      '[data-testid*="product"]',
+      '[class*="ProductCard"]',
+      '[class*="product-card"]',
+      '[class*="offer-card"]',
+      '[class*="campaign"]',
+      'article',
+      '.product',
+      '[class*="Product_"]',
+      '[class*="Offer_"]',
+    ];
+
+    for (const selector of productSelectors) {
+      const elements = await page.$$(selector);
+      console.log(`[Hemköp] Selector "${selector}" found ${elements.length} elements`);
+      
+      if (elements.length > 3 && elements.length < 500) {
+        // This looks like a product grid
+        let debugCount = 0;
+        for (const element of elements) {
+          try {
+            // Get all text content
+            const text = await element.textContent() || '';
+
+            // Log first 3 elements for debugging
+            if (debugCount < 3) {
+              console.log(`[Hemköp] Sample element ${debugCount + 1}: "${text.substring(0, 200).replace(/\n/g, ' ')}..."`);
+              
+              // Test price patterns
+              const patterns = [
+                /(\d+)[,.](\d{2})\/(?:st|kg|l|förp)/i,
+                /(\d+)[,:](\d{2})\s*(?:kr|:-)/i,
+                /(\d+)\s*(?:kr|:-)/i,
+              ];
+              for (const p of patterns) {
+                const m = text.match(p);
+                if (m) console.log(`[Hemköp]   Pattern ${p} matched: "${m[0]}"`);
+              }
+              debugCount++;
+            }
+            
+            // Look for Swedish price patterns - Hemköp uses "5,00/st" format
+            const pricePatterns = [
+              /(\d+)[,.](\d{2})\/(?:st|kg|l|förp)/i,  // 5,00/st, 29,90/kg
+              /(\d+)[,:](\d{2})\s*(?:kr|:-)/i,        // 29,90 kr or 29:90:-
+              /(\d+)\s*(?:kr|:-)/i,                    // 29 kr or 29:-
+            ];
+            
+            let priceMatch = null;
+            for (const pattern of pricePatterns) {
+              priceMatch = text.match(pattern);
+              if (priceMatch) break;
+            }
+            if (!priceMatch) continue;
+            
+            // Skip empty/placeholder elements
+            if (text.trim().length < 10) continue;
+
+            // Get potential product name
+            // Hemköp format: "5,00/st5,00/stMunkarDafgårds, 63g..."
+            // Name usually follows the double price pattern
+            let name: string | null = null;
+            
+            // Try to extract name from after the price pattern
+            const afterPriceMatch = text.match(/(?:\d+[,.]?\d*\/(?:st|kg|l|förp)){1,2}(.+?)(?:Lägsta|Erbjudandets|\d+\s*dgr)/i);
+            if (afterPriceMatch) {
+              name = afterPriceMatch[1].trim();
+            }
+            
+            // Try heading elements as fallback
+            if (!name || name.length < 2) {
+              const nameEl = await element.$('h1, h2, h3, h4, strong, [class*="name"], [class*="title"]');
+              name = nameEl ? (await nameEl.textContent())?.trim() || null : null;
+            }
+            
+            // Log debug info
+            if (debugCount <= 3) {
+              console.log(`[Hemköp]   Extracted name: "${name}"`);
+            }
+            
+            if (!name || name.length < 2) continue;
+
+            // Get price - construct proper price string
+            let priceStr = priceMatch[0];
+            const price = this.parsePrice(priceStr);
+            if (!price || price < 1 || price > 10000) continue;
+
+            // Get image
+            const imgEl = await element.$('img');
+            const imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
+
+            // Check for duplicates
+            const existingOffer = offers.find(o => o.name === name && o.offerPrice === price);
+            if (existingOffer) continue;
+
+            offers.push({
+              id: this.generateOfferId('hemkop', store.externalId, name),
+              name,
+              offerPrice: price,
+              imageUrl: imageUrl || undefined,
+              storeId: store.id,
+              chain: 'hemkop',
+              scrapedAt: new Date(),
+            });
+
+          } catch (e) {
+            // Skip problematic elements
+          }
+        }
+
+        if (offers.length > 0) break; // Found offers, stop trying selectors
+      }
+    }
+
+    return offers;
   }
 
   private async scrollToLoadAll(page: Page): Promise<void> {
