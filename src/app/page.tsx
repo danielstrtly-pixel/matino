@@ -276,7 +276,7 @@ export default async function Home() {
             <Card className="bg-cream-light border-0 rounded-3xl p-6 md:p-8">
               <CardContent className="p-0">
                 <div className="text-charcoal/60 font-medium mb-2">Månadsvis</div>
-                <div className="text-4xl md:text-5xl font-bold text-charcoal mb-1">59 kr</div>
+                <div className="text-4xl md:text-5xl font-bold text-charcoal mb-1">69 kr</div>
                 <div className="text-charcoal/60 mb-6">per månad</div>
                 <ul className="text-left space-y-3 mb-8 text-sm">
                   {[
@@ -303,18 +303,18 @@ export default async function Home() {
             <Card className="bg-fresh text-white border-0 rounded-3xl p-6 md:p-8 relative overflow-hidden">
               <CardContent className="p-0">
                 <div className="absolute top-4 right-4 bg-orange text-white text-xs font-bold px-3 py-1 rounded-full">
-                  SPARA 30%
+                  SPARA 40%
                 </div>
                 <div className="text-white/80 font-medium mb-2">Årsvis</div>
                 <div className="text-4xl md:text-5xl font-bold mb-1">499 kr</div>
                 <div className="text-white/70 mb-2">per år</div>
                 <div className="text-sm text-white/60 mb-6">
-                  <span className="line-through">708 kr</span> · Du sparar 209 kr
+                  <span className="line-through">828 kr</span> · Du sparar 329 kr
                 </div>
                 <ul className="text-left space-y-3 mb-8 text-sm">
                   {[
                     "Allt i månadsabonnemanget",
-                    "Betala för 8,5 månader – få 12",
+                    "Betala för 7 månader – få 12",
                     "Lås priset i 12 månader",
                     "Prioriterad support",
                   ].map((item, i) => (
