@@ -83,12 +83,33 @@ const perUnitText = isMultiBuy && offer.quantityPrice
 | Styck | 29,00 kr | 29,00 kr |
 | Paket | 3 för 89,00 kr | 3 för 89,00 kr (29,67 kr/st) |
 
+## Scraper-specifika detaljer
+
+### ICA
+- Letar efter "X för Y kr" i pristext och element-text
+- Båda `parseOfferElement` och `extractOffersAlternative` hanterar quantity
+
+### Coop
+- Extraherar från produktkortens fulltext
+- Mönster: `(\d+)\s*för\s*(\d+)\s*kr`
+
+### Hemköp
+- **Primär väg**: `product-container` element (60+ produkter)
+- **Fallback**: `data-role="offer"` element
+- Båda vägarna hanterar "X FÖR Y:-" mönster
+- OBS: Hemköp visar ofta "2 FÖR 50:-" (med kolon och bindestreck)
+
+### Lidl
+- Stöd för quantity finns, men Lidl har sällan "X för Y"-erbjudanden
+- Extraherar från produktgrid på kategorisidor
+
 ## Historik
 
 - **2026-01-27**: Implementerade korrekt hantering av paketpriser
   - Fixade scrapers för ICA, Coop, Hemköp, Lidl
   - Uppdaterade frontend för att visa "X för Y kr" korrekt
   - Tidigare visades styckpris felaktigt som paketpris
+  - Fixade Hemköp product-container-vägen (saknades quantity-hantering)
 
 ## Framtida förbättringar
 
