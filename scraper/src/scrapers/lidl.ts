@@ -145,195 +145,83 @@ export class LidlScraper extends BaseScraper {
   private async extractOffers(page: Page, store: Store): Promise<Offer[]> {
     const offers: Offer[] = [];
     
-    // Extract Lidl products - try JSON data first, then fallback to text parsing
+    // Extract Lidl products using HTML structure (.price-wrapper)
     const rawProducts = await page.evaluate(() => {
       const products: any[] = [];
       
-      // Method 1: Try parsing JSON from data-grid-data attributes (most reliable)
-      const jsonElements = document.querySelectorAll('[data-grid-data]');
-      jsonElements.forEach(item => {
+      // Find all product grid boxes
+      const productBoxes = document.querySelectorAll('.product-grid-box');
+      
+      productBoxes.forEach(item => {
         try {
-          const jsonStr = item.getAttribute('data-grid-data');
-          if (!jsonStr) return;
-          
-          const data = JSON.parse(jsonStr);
-          
-          const name = data.fullTitle || data.title || data.keyfacts?.title;
+          // Get product name from title link
+          const titleEl = item.querySelector('.odsc-tile__link') as HTMLElement;
+          const name = titleEl?.textContent?.trim();
           if (!name) return;
           
-          const priceData = data.price;
-          if (!priceData) return;
+          // Get product image
+          const img = item.querySelector('img.odsc-image-gallery__image') as HTMLImageElement;
+          const imageUrl = img?.src || img?.getAttribute('data-src') || null;
           
-          // Price can be in price.price or at top level
-          // Ensure we get a numeric value - sometimes it's a string like "89,90"
-          let rawPrice = priceData.price;
-          let offerPrice: number;
-          if (typeof rawPrice === 'string') {
-            // Handle Swedish price format: "89,90" or "1 för 89,90"
-            const priceMatch = rawPrice.match(/(\d+)[,.](\d{2})|(\d+)/);
-            if (priceMatch) {
-              if (priceMatch[1] && priceMatch[2]) {
-                offerPrice = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
-              } else {
-                offerPrice = parseFloat(priceMatch[3] || priceMatch[0]);
-              }
-            } else {
-              return; // Skip if we can't parse the price
-            }
-          } else {
-            offerPrice = rawPrice;
-          }
+          // Get price info from .price-wrapper structure
+          const priceWrapper = item.querySelector('.price-wrapper');
+          if (!priceWrapper) return;
           
-          let quantity: number | undefined;
-          let originalPrice: number | undefined = priceData.oldPrice || undefined;
+          // Extract offer price from .ods-price__value (e.g., "15:-*" or "89,90")
+          const priceValueEl = priceWrapper.querySelector('.ods-price__value');
+          const priceText = priceValueEl?.textContent?.trim() || '';
           
-          // Check for "X FÖR" deals in discountText
-          const discountText = priceData.discount?.discountText || '';
-          const forMatch = discountText.match(/(\d+)\s*FÖR/i);
-          if (forMatch) {
-            quantity = parseInt(forMatch[1]);
-            // When it's "2 FÖR 15", price.price IS the total (15), not per-unit
-            // originalPrice.oldPrice is the normal price (2 × single price)
-          }
-          
-          // Also check if discountText has price info like "2 FÖR 89,90"
-          const discountPriceMatch = discountText.match(/(\d+)\s*FÖR\s*(\d+)[,.]?(\d{0,2})/i);
-          if (discountPriceMatch) {
-            quantity = parseInt(discountPriceMatch[1]);
-            const whole = discountPriceMatch[2];
-            const decimal = discountPriceMatch[3] || '00';
-            offerPrice = parseFloat(`${whole}.${decimal}`);
-          }
-          
-          let unit = priceData.basePrice?.text || undefined;
-          let imageUrl = data.image || data.image_V1?.image || null;
-          
-          // Check for Lidl Plus price
-          if (data.lidlPlus && data.lidlPlus.length > 0) {
-            const lidlPlusPrice = data.lidlPlus[0]?.price?.price;
-            if (lidlPlusPrice && lidlPlusPrice < offerPrice) {
-              originalPrice = offerPrice;
-              offerPrice = lidlPlusPrice;
+          let offerPrice: number | undefined;
+          // Match formats: "15:-", "15:-*", "89,90", "89.90"
+          const priceMatch = priceText.match(/(\d+)[,.](\d{2})|(\d+):-/);
+          if (priceMatch) {
+            if (priceMatch[1] && priceMatch[2]) {
+              offerPrice = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
+            } else if (priceMatch[3]) {
+              offerPrice = parseFloat(priceMatch[3]);
             }
           }
           
-          // Skip items without valid price
           if (!offerPrice || offerPrice <= 0) return;
           
-          // Return raw debug data for products with suspiciously low prices
-          const debugData = (offerPrice <= 10) 
-            ? JSON.stringify({ rawPrice, priceRaw: priceData.price, discountText }) 
-            : undefined;
+          // Extract original price from .ods-price__stroke-price s (e.g., "19.80")
+          let originalPrice: number | undefined;
+          const strokePriceEl = priceWrapper.querySelector('.ods-price__stroke-price s');
+          const strokeText = strokePriceEl?.textContent?.trim() || '';
+          const strokeMatch = strokeText.match(/(\d+)[,.](\d{2})|(\d+)/);
+          if (strokeMatch) {
+            if (strokeMatch[1] && strokeMatch[2]) {
+              originalPrice = parseFloat(`${strokeMatch[1]}.${strokeMatch[2]}`);
+            } else if (strokeMatch[3]) {
+              originalPrice = parseFloat(strokeMatch[3]);
+            }
+          }
           
-          products.push({ name, offerPrice, imageUrl, quantity, originalPrice, unit, debugData });
-        } catch (e) {}
+          // Extract quantity from deal text (e.g., "2 FÖR:")
+          let quantity: number | undefined;
+          const dealTextEl = priceWrapper.querySelector('.ods-price__box-content-text-el');
+          const dealText = dealTextEl?.textContent?.trim() || '';
+          const quantityMatch = dealText.match(/(\d+)\s*FÖR/i);
+          if (quantityMatch) {
+            quantity = parseInt(quantityMatch[1]);
+          }
+          
+          // Extract unit info from footer (e.g., "21 g, 24 g, 26 g/förp.")
+          const footerEl = priceWrapper.querySelector('.ods-price__footer');
+          const unit = footerEl?.textContent?.trim()?.split('\n')[0] || undefined;
+          
+          products.push({ 
+            name, 
+            offerPrice, 
+            originalPrice,
+            imageUrl, 
+            quantity, 
+            unit 
+          });
+        } catch (e) {
+          // Skip problematic elements
+        }
       });
-      
-      // Method 2: If JSON didn't work, fallback to .product-grid-box parsing
-      if (products.length === 0) {
-        const productBoxes = document.querySelectorAll('.product-grid-box, .AProductGridbox__GridTilePlaceholder');
-        productBoxes.forEach(item => {
-          try {
-            // Try to get JSON from this element or parent
-            let jsonStr = item.getAttribute('data-grid-data');
-            if (!jsonStr) {
-              const parent = item.closest('[data-grid-data]');
-              jsonStr = parent?.getAttribute('data-grid-data') || null;
-            }
-            
-            if (jsonStr) {
-              const data = JSON.parse(jsonStr);
-              const name = data.fullTitle || data.title;
-              const priceData = data.price;
-              if (name && priceData?.price) {
-                // Parse price properly (may be string like "89,90")
-                let rawPrice = priceData.price;
-                let offerPrice: number;
-                if (typeof rawPrice === 'string') {
-                  const priceMatch = rawPrice.match(/(\d+)[,.](\d{2})|(\d+)/);
-                  if (priceMatch) {
-                    if (priceMatch[1] && priceMatch[2]) {
-                      offerPrice = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
-                    } else {
-                      offerPrice = parseFloat(priceMatch[3] || priceMatch[0]);
-                    }
-                  } else {
-                    return;
-                  }
-                } else {
-                  offerPrice = rawPrice;
-                }
-                
-                let quantity: number | undefined;
-                const discountText = priceData.discount?.discountText || '';
-                const forMatch = discountText.match(/(\d+)\s*FÖR/i);
-                if (forMatch) quantity = parseInt(forMatch[1]);
-                
-                // Check for price in discountText like "2 FÖR 89,90"
-                const discountPriceMatch = discountText.match(/(\d+)\s*FÖR\s*(\d+)[,.]?(\d{0,2})/i);
-                if (discountPriceMatch) {
-                  quantity = parseInt(discountPriceMatch[1]);
-                  const whole = discountPriceMatch[2];
-                  const decimal = discountPriceMatch[3] || '00';
-                  offerPrice = parseFloat(`${whole}.${decimal}`);
-                }
-                
-                products.push({
-                  name,
-                  offerPrice,
-                  imageUrl: data.image,
-                  quantity,
-                  originalPrice: priceData.oldPrice,
-                  unit: priceData.basePrice?.text,
-                });
-              }
-              return;
-            }
-            
-            // Fallback to text parsing
-            const titleEl = item.querySelector('.odsc-tile__link, [class*="name"], [class*="title"], h2, h3, h4');
-            const name = titleEl?.textContent?.trim();
-            if (!name) return;
-            
-            const fullText = item.textContent || '';
-            
-            // Extract price
-            let offerPrice: number | undefined;
-            const priceMatch = fullText.match(/(\d+)[,.](\d{2})|(\d+):-/);
-            if (priceMatch) {
-              if (priceMatch[1] && priceMatch[2]) {
-                offerPrice = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
-              } else if (priceMatch[3]) {
-                offerPrice = parseFloat(priceMatch[3]);
-              }
-            }
-            
-            // Extract quantity from "X för Y kr" - handle decimals properly
-            let quantity: number | undefined;
-            const forMatch = fullText.match(/(\d+)\s*för\s*(\d+)[,.]?(\d{0,2})/i);
-            if (forMatch) {
-              quantity = parseInt(forMatch[1]);
-              // Build proper decimal price
-              const whole = forMatch[2];
-              const decimal = forMatch[3] || '00';
-              offerPrice = parseFloat(`${whole}.${decimal}`);
-            }
-            
-            // Extract image
-            let imageUrl: string | null = null;
-            const img = item.querySelector('img.odsc-image-gallery__image, img[src*="assets.schwarz"]') as HTMLImageElement;
-            if (img) imageUrl = img.src || img.getAttribute('data-src');
-            
-            // Extract unit
-            const unitMatch = fullText.match(/(\d+\s*g|\d+\s*ml|\d+\s*l|\/kg|\/st)/i);
-            const unit = unitMatch ? unitMatch[1] : undefined;
-            
-            if (name && offerPrice && offerPrice > 0) {
-              products.push({ name, offerPrice, imageUrl, quantity, unit });
-            }
-          } catch (e) {}
-        });
-      }
       
       return products;
     });
@@ -343,11 +231,6 @@ export class LidlScraper extends BaseScraper {
     // Process raw products
     for (const raw of rawProducts) {
       try {
-        // Log debug data for problematic products
-        if (raw.debugData) {
-          console.log(`[Lidl Debug] ${raw.name}:`, raw.debugData);
-        }
-        
         const name = raw.name;
         if (!name || name.length < 2 || name.length > 100) continue;
         
