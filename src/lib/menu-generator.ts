@@ -61,6 +61,14 @@ export interface MenuItem {
     dairyFree: boolean;
     cuisines: string[];
     summary?: string;
+    nutrition?: {
+      calories: number | null;
+      protein: number | null;
+      fat: number | null;
+      carbs: number | null;
+      fiber?: number | null;
+      sugar?: number | null;
+    };
   };
   matchedOffers: {
     offerId: string;
@@ -310,6 +318,7 @@ export async function generateMenu(
         dairyFree: formatted.dairyFree,
         cuisines: formatted.cuisines,
         summary: formatted.summary,
+        nutrition: formatted.nutrition,
       },
       matchedOffers,
       estimatedSavings: matchedOffers.reduce((sum, o) => sum + (o.price * 0.2), 0),
@@ -350,6 +359,7 @@ export async function generateMenu(
           glutenFree: formatted.glutenFree,
           dairyFree: formatted.dairyFree,
           cuisines: formatted.cuisines,
+          nutrition: formatted.nutrition,
         },
         matchedOffers,
       });
@@ -440,6 +450,7 @@ export async function regenerateMeal(
         glutenFree: formatted.glutenFree,
         dairyFree: formatted.dairyFree,
         cuisines: formatted.cuisines,
+        nutrition: formatted.nutrition,
       },
       matchedOffers,
       estimatedSavings: matchedOffers.reduce((sum, o) => sum + (o.price * 0.2), 0),

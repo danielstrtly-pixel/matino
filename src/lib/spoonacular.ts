@@ -103,6 +103,14 @@ export interface SpoonacularRecipe {
       length?: { number: number; unit: string };
     }[];
   }[];
+  nutrition?: {
+    nutrients: {
+      name: string;
+      amount: number;
+      unit: string;
+      percentOfDailyNeeds: number;
+    }[];
+  };
 }
 
 export interface RecipeSearchParams {
@@ -143,9 +151,10 @@ export async function searchRecipes(params: RecipeSearchParams): Promise<Spoonac
   const url = new URL(`${SPOONACULAR_BASE_URL}/recipes/complexSearch`);
   url.searchParams.set('apiKey', SPOONACULAR_API_KEY);
   
-  // Always get recipe information and instructions
+  // Always get recipe information, instructions, and nutrition
   url.searchParams.set('addRecipeInformation', 'true');
   url.searchParams.set('addRecipeInstructions', 'true');
+  url.searchParams.set('addRecipeNutrition', 'true');
   url.searchParams.set('fillIngredients', 'true');
   
   // Require instructions
@@ -368,6 +377,27 @@ export function translateDislikes(dislikes: string[]): string[] {
 }
 
 /**
+ * Extract nutrition info from recipe
+ */
+function extractNutrition(recipe: SpoonacularRecipe) {
+  const nutrients = recipe.nutrition?.nutrients || [];
+  
+  const findNutrient = (name: string) => {
+    const n = nutrients.find(n => n.name.toLowerCase() === name.toLowerCase());
+    return n ? Math.round(n.amount) : null;
+  };
+  
+  return {
+    calories: findNutrient('Calories'),
+    protein: findNutrient('Protein'),
+    fat: findNutrient('Fat'),
+    carbs: findNutrient('Carbohydrates'),
+    fiber: findNutrient('Fiber'),
+    sugar: findNutrient('Sugar'),
+  };
+}
+
+/**
  * Format recipe for display (with Swedish translations where possible)
  */
 export function formatRecipeForDisplay(recipe: SpoonacularRecipe) {
@@ -382,6 +412,9 @@ export function formatRecipeForDisplay(recipe: SpoonacularRecipe) {
     }
     return ing.original;
   }) || [];
+
+  // Extract nutrition
+  const nutrition = extractNutrition(recipe);
 
   return {
     id: recipe.id,
@@ -405,5 +438,6 @@ export function formatRecipeForDisplay(recipe: SpoonacularRecipe) {
     ingredients,
     instructions,
     summary: recipe.summary?.replace(/<[^>]*>/g, '') || '', // Strip HTML
+    nutrition,
   };
 }

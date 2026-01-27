@@ -36,6 +36,12 @@ interface MenuItem {
     dairyFree: boolean;
     cuisines: string[];
     summary?: string;
+    nutrition?: {
+      calories: number | null;
+      protein: number | null;
+      fat: number | null;
+      carbs: number | null;
+    };
   };
   matchedOffers: {
     offerId: string;
@@ -278,6 +284,9 @@ export default function MenuPage() {
                             <Badge variant="outline">⏱️ {item.recipe.readyInMinutes} min</Badge>
                           )}
                           <Badge variant="outline">🍽️ {item.recipe.servings} port</Badge>
+                          {item.recipe.nutrition?.calories && (
+                            <Badge variant="outline">🔥 {item.recipe.nutrition.calories} kcal</Badge>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -403,6 +412,28 @@ export default function MenuPage() {
                   {selectedRecipe.recipe.vegetarian && <Badge variant="secondary">Vegetarisk</Badge>}
                   {selectedRecipe.recipe.glutenFree && <Badge variant="secondary">Glutenfri</Badge>}
                 </div>
+
+                {/* Nutrition info */}
+                {selectedRecipe.recipe.nutrition && (
+                  <div className="grid grid-cols-4 gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-center">
+                      <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.calories || '-'}</p>
+                      <p className="text-xs text-gray-500">kcal</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.protein || '-'}g</p>
+                      <p className="text-xs text-gray-500">protein</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.carbs || '-'}g</p>
+                      <p className="text-xs text-gray-500">kolhydrater</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.fat || '-'}g</p>
+                      <p className="text-xs text-gray-500">fett</p>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="font-semibold mb-2">Ingredienser</h3>
