@@ -46,6 +46,11 @@ const CATEGORIES = [
   { id: 'ovrigt', name: 'Övrigt', emoji: '📦' },
 ];
 
+// Format price with 2 decimals
+const formatPrice = (price: number): string => {
+  return price.toFixed(2).replace('.', ',');
+};
+
 export default function DealsPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,8 +225,8 @@ export default function DealsPage() {
           {filteredOffers.map((offer) => {
             const chain = getChainConfig(offer.chain);
             const priceText = offer.quantity && offer.quantityPrice 
-              ? `${offer.quantity} för ${offer.quantityPrice} kr`
-              : `${offer.offerPrice} kr`;
+              ? `${offer.quantity} för ${formatPrice(offer.quantityPrice)} kr`
+              : `${formatPrice(offer.offerPrice)} kr`;
             
             return (
               <Card key={offer.id} className="hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
@@ -270,7 +275,7 @@ export default function DealsPage() {
                     </span>
                     {offer.originalPrice && offer.originalPrice > offer.offerPrice && (
                       <span className="text-gray-400 line-through text-sm ml-2">
-                        {offer.originalPrice} kr
+                        {formatPrice(offer.originalPrice)} kr
                       </span>
                     )}
                   </div>
