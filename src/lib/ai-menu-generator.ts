@@ -117,12 +117,17 @@ ${offersSummary || 'Inga erbjudanden tillgängliga'}
 
 REGLER:
 1. Använd svenska mått (dl, msk, tsk, g, kg)
-2. Variera protein (kött, fisk, vegetariskt)
+2. VARIATION ÄR VIKTIGT - varje dag ska kännas annorlunda:
+   - Variera proteinkällor: kyckling, nöt, fläsk, fisk, vegetariskt (minst 2-3 olika per vecka)
+   - Variera kolhydrater: potatis, ris, pasta, bröd, bulgur, quinoa
+   - Variera tillagning: ugn, stekpanna, gryta, wok, sallad
+   - Variera matkulturer: svensk husmanskost, italienskt, asiatiskt, mexikanskt
 3. Fredagar kan vara "fredagsmys" (tacos, pizza, hamburgare)
 4. Markera ingredienser som matchar erbjudanden med "offer": true
 5. Uppskatta näringsvärden per portion
 6. Ge praktiska tips för tillagning
 7. Anpassa portioner för ${preferences.householdSize} personer
+8. Tänk på näringsbalans - inte bara pasta eller bara potatis hela veckan
 
 Svara i JSON-format:
 {
