@@ -46,8 +46,8 @@ export interface ChainConfig {
 export const CHAINS: ChainConfig[] = [
   { id: 'ica', name: 'ICA', color: '#e3000b', logo: '🔴', supported: true },
   { id: 'hemkop', name: 'Hemköp', color: '#ff6600', logo: '🟠', supported: true },
-  { id: 'coop', name: 'Coop', color: '#00aa46', logo: '🟢', supported: false },
-  { id: 'lidl', name: 'Lidl', color: '#0050aa', logo: '🔵', supported: false },
+  { id: 'coop', name: 'Coop', color: '#00aa46', logo: '🟢', supported: true },
+  { id: 'lidl', name: 'Lidl', color: '#0050aa', logo: '🔵', supported: true },
 ];
 
 export async function getHealth(): Promise<{ status: string; supportedChains: string[] }> {
