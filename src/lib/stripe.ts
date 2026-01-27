@@ -71,6 +71,7 @@ export async function createCheckoutSession(
     customer: customerId,
     mode: 'subscription',
     payment_method_types: ['card'],
+    locale: 'sv', // Swedish
     line_items: [
       {
         price: priceId,
@@ -99,6 +100,7 @@ export async function createPortalSession(
   return stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
+    locale: 'sv', // Swedish
   });
 }
 
