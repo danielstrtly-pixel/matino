@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     // Create portal session
-    const origin = request.headers.get('origin') || 'https://matino-two.vercel.app';
+    const origin = request.headers.get('origin') || 'https://smartamenyn.se';
     const session = await createPortalSession(
       customer.stripe_customer_id,
       `${origin}/dashboard/settings`

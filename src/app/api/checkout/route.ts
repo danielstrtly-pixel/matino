@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     );
 
     // Create checkout session
-    const origin = request.headers.get('origin') || 'https://matino-two.vercel.app';
+    const origin = request.headers.get('origin') || 'https://smartamenyn.se';
     const session = await createCheckoutSession(
       customerId,
       priceId,
