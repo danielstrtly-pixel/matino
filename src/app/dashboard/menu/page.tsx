@@ -18,19 +18,24 @@ interface MenuItem {
   dayIndex: number;
   meal: 'lunch' | 'dinner';
   recipe: {
-    id: string;
+    id: number;
     name: string;
     nameSwedish?: string;
     image: string;
-    source: string;
+    sourceName: string;
     sourceUrl: string;
     servings: number;
-    cookTime: number | null;
-    calories: number;
+    readyInMinutes: number;
     ingredients: string[];
-    cuisineType: string | null;
-    dietLabels: string[];
-    healthLabels: string[];
+    ingredientsSwedish?: string[];
+    instructions: string[];
+    instructionsSwedish?: string[];
+    vegetarian: boolean;
+    vegan: boolean;
+    glutenFree: boolean;
+    dairyFree: boolean;
+    cuisines: string[];
+    summary?: string;
   };
   matchedOffers: {
     offerId: string;
@@ -269,11 +274,10 @@ export default function MenuPage() {
                           )}
                         </div>
                         <div className="flex gap-2 flex-wrap justify-end">
-                          {item.recipe.cookTime && (
-                            <Badge variant="outline">⏱️ {item.recipe.cookTime} min</Badge>
+                          {item.recipe.readyInMinutes && (
+                            <Badge variant="outline">⏱️ {item.recipe.readyInMinutes} min</Badge>
                           )}
                           <Badge variant="outline">🍽️ {item.recipe.servings} port</Badge>
-                          <Badge variant="outline">🔥 {item.recipe.calories} kcal</Badge>
                         </div>
                       </div>
                     </CardHeader>
@@ -307,12 +311,18 @@ export default function MenuPage() {
 
                           {/* Cuisine & diet info */}
                           <div className="flex flex-wrap gap-1 mb-3">
-                            {item.recipe.cuisineType && (
-                              <Badge variant="secondary">{item.recipe.cuisineType}</Badge>
+                            {item.recipe.cuisines?.[0] && (
+                              <Badge variant="secondary">{item.recipe.cuisines[0]}</Badge>
                             )}
-                            {item.recipe.dietLabels.slice(0, 2).map((label, i) => (
-                              <Badge key={i} variant="secondary">{label}</Badge>
-                            ))}
+                            {item.recipe.vegetarian && (
+                              <Badge variant="secondary">Vegetarisk</Badge>
+                            )}
+                            {item.recipe.glutenFree && (
+                              <Badge variant="secondary">Glutenfri</Badge>
+                            )}
+                            {item.recipe.dairyFree && (
+                              <Badge variant="secondary">Laktosfri</Badge>
+                            )}
                           </div>
 
                           {/* Actions */}
@@ -372,7 +382,7 @@ export default function MenuPage() {
                   {selectedRecipe.recipe.nameSwedish || selectedRecipe.recipe.name}
                 </DialogTitle>
                 <DialogDescription>
-                  Från: {selectedRecipe.recipe.source}
+                  Från: {selectedRecipe.recipe.sourceName}
                 </DialogDescription>
               </DialogHeader>
               
@@ -386,29 +396,38 @@ export default function MenuPage() {
                 )}
                 
                 <div className="flex gap-2 flex-wrap">
-                  {selectedRecipe.recipe.cookTime && (
-                    <Badge>⏱️ {selectedRecipe.recipe.cookTime} min</Badge>
+                  {selectedRecipe.recipe.readyInMinutes && (
+                    <Badge>⏱️ {selectedRecipe.recipe.readyInMinutes} min</Badge>
                   )}
                   <Badge>🍽️ {selectedRecipe.recipe.servings} portioner</Badge>
-                  <Badge>🔥 {selectedRecipe.recipe.calories} kcal/portion</Badge>
+                  {selectedRecipe.recipe.vegetarian && <Badge variant="secondary">Vegetarisk</Badge>}
+                  {selectedRecipe.recipe.glutenFree && <Badge variant="secondary">Glutenfri</Badge>}
                 </div>
 
                 <div>
                   <h3 className="font-semibold mb-2">Ingredienser</h3>
                   <ul className="list-disc list-inside space-y-1">
-                    {selectedRecipe.recipe.ingredients.map((ing, i) => (
+                    {(selectedRecipe.recipe.ingredientsSwedish || selectedRecipe.recipe.ingredients).map((ing, i) => (
                       <li key={i} className="text-sm">{ing}</li>
                     ))}
                   </ul>
                 </div>
 
+                {(selectedRecipe.recipe.instructionsSwedish || selectedRecipe.recipe.instructions)?.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Instruktioner</h3>
+                    <ol className="list-decimal list-inside space-y-2">
+                      {(selectedRecipe.recipe.instructionsSwedish || selectedRecipe.recipe.instructions).map((step, i) => (
+                        <li key={i} className="text-sm">{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
                 <div className="pt-4 border-t">
-                  <p className="text-sm text-gray-500 mb-2">
-                    Fullständigt recept med instruktioner finns på källsidan:
-                  </p>
-                  <Button asChild>
+                  <Button asChild variant="outline">
                     <a href={selectedRecipe.recipe.sourceUrl} target="_blank" rel="noopener noreferrer">
-                      🔗 Öppna recept på {selectedRecipe.recipe.source}
+                      🔗 Originalrecept på {selectedRecipe.recipe.sourceName}
                     </a>
                   </Button>
                 </div>

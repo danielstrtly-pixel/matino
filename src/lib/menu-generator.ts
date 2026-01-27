@@ -1,13 +1,17 @@
 /**
- * Menu Generator - Combines Edamam recipes with store offers
+ * Menu Generator - Combines Spoonacular recipes with store offers
  */
 
 import { 
   searchRecipes, 
   extractSearchableIngredients, 
   formatRecipeForDisplay,
-  EdamamRecipe 
-} from './edamam';
+  translateDislikes,
+  SpoonacularRecipe,
+  INTOLERANCES,
+  DIETS,
+  CUISINES,
+} from './spoonacular';
 import { chat } from './openrouter';
 
 export interface UserPreferences {
@@ -15,8 +19,8 @@ export interface UserPreferences {
   hasChildren: boolean;
   likes: string[];
   dislikes: string[];
-  healthLabels: string[];
-  dietLabels: string[];
+  healthLabels: string[];  // Maps to intolerances
+  dietLabels: string[];    // Maps to diet
   cuisineTypes: string[];
   mealsPerWeek: number;
   maxCookTime: number;
@@ -39,19 +43,24 @@ export interface MenuItem {
   dayIndex: number;
   meal: 'lunch' | 'dinner';
   recipe: {
-    id: string;
+    id: number;
     name: string;
     nameSwedish?: string;
     image: string;
-    source: string;
     sourceUrl: string;
+    sourceName: string;
     servings: number;
-    cookTime: number | null;
-    calories: number;
+    readyInMinutes: number;
     ingredients: string[];
-    cuisineType: string | null;
-    dietLabels: string[];
-    healthLabels: string[];
+    ingredientsSwedish?: string[];
+    instructions: string[];
+    instructionsSwedish?: string[];
+    vegetarian: boolean;
+    vegan: boolean;
+    glutenFree: boolean;
+    dairyFree: boolean;
+    cuisines: string[];
+    summary?: string;
   };
   matchedOffers: {
     offerId: string;
@@ -71,71 +80,110 @@ export interface GeneratedMenu {
 const DAYS_SWEDISH = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
 
 /**
- * Map Swedish dislikes to English for Edamam excluded parameter
+ * Translate recipe content to Swedish using OpenRouter
  */
-const DISLIKE_TRANSLATIONS: Record<string, string> = {
-  'koriander': 'cilantro',
-  'lever': 'liver',
-  'svamp': 'mushroom',
-  'champinjoner': 'mushroom',
-  'oliver': 'olive',
-  'skaldjur': 'shellfish',
-  'räkor': 'shrimp',
-  'anjovis': 'anchovy',
-  'kapris': 'capers',
-  'selleri': 'celery',
-  'rödbetor': 'beet',
-  'fänkål': 'fennel',
-  'lakrits': 'licorice',
-  'bläckfisk': 'octopus',
-  'inälvor': 'organ meat',
-};
-
-function translateDislikes(dislikes: string[]): string[] {
-  return dislikes.map(d => {
-    const lower = d.toLowerCase();
-    return DISLIKE_TRANSLATIONS[lower] || d;
-  });
-}
-
-/**
- * Translate recipe name to Swedish using OpenRouter
- */
-async function translateRecipeName(name: string): Promise<string> {
+async function translateRecipe(recipe: ReturnType<typeof formatRecipeForDisplay>): Promise<{
+  nameSwedish: string;
+  ingredientsSwedish: string[];
+  instructionsSwedish: string[];
+}> {
   try {
     const result = await chat([
       {
         role: 'system',
-        content: 'Översätt receptnamnet till svenska. Svara endast med översättningen, inget annat.',
+        content: `Du är en professionell matöversättare. Översätt receptet till svenska.
+Konvertera amerikanska mått till metriska: cups → dl, oz → g, lbs → kg, tbsp → msk, tsp → tsk, fahrenheit → celsius.
+Svara ENDAST i JSON-format exakt så här:
+{
+  "name": "Receptnamn på svenska",
+  "ingredients": ["ingrediens 1 på svenska", "ingrediens 2"],
+  "instructions": ["steg 1 på svenska", "steg 2"]
+}`,
       },
-      { role: 'user', content: name },
-    ], { temperature: 0.3, max_tokens: 100 });
-    
-    return result.trim();
+      {
+        role: 'user',
+        content: JSON.stringify({
+          name: recipe.name,
+          ingredients: recipe.ingredients.slice(0, 15), // Limit to avoid token overflow
+          instructions: recipe.instructions.slice(0, 10),
+        }),
+      },
+    ], { temperature: 0.3, json_mode: true, max_tokens: 2000 });
+
+    const parsed = JSON.parse(result);
+    return {
+      nameSwedish: parsed.name || recipe.name,
+      ingredientsSwedish: parsed.ingredients || recipe.ingredients,
+      instructionsSwedish: parsed.instructions || recipe.instructions,
+    };
   } catch (error) {
-    console.error('Translation error:', error);
-    return name; // Fallback to English
+    console.error('[MenuGen] Translation error:', error);
+    return {
+      nameSwedish: recipe.name,
+      ingredientsSwedish: recipe.ingredients,
+      instructionsSwedish: recipe.instructions,
+    };
   }
+}
+
+/**
+ * Map Swedish preference labels to Spoonacular API parameters
+ */
+function mapPreferencesToSpoonacular(preferences: UserPreferences) {
+  // Map health labels to intolerances
+  const intolerances: string[] = [];
+  for (const label of preferences.healthLabels) {
+    const mapped = Object.entries(INTOLERANCES).find(([, v]) => v === label)?.[1];
+    if (mapped) intolerances.push(mapped);
+    // Also check if label itself is already an intolerance value
+    if (Object.values(INTOLERANCES).includes(label as any)) {
+      intolerances.push(label);
+    }
+  }
+
+  // Map diet labels
+  let diet: string | undefined;
+  for (const label of preferences.dietLabels) {
+    const mapped = Object.entries(DIETS).find(([, v]) => v === label)?.[1];
+    if (mapped) {
+      diet = mapped;
+      break;
+    }
+    if (Object.values(DIETS).includes(label as any)) {
+      diet = label;
+      break;
+    }
+  }
+
+  // Map cuisine types
+  const cuisines: string[] = [];
+  for (const cuisine of preferences.cuisineTypes) {
+    const mapped = Object.entries(CUISINES).find(([, v]) => v === cuisine)?.[1];
+    if (mapped) cuisines.push(mapped);
+    if (Object.values(CUISINES).includes(cuisine as any)) {
+      cuisines.push(cuisine);
+    }
+  }
+
+  return { intolerances, diet, cuisines };
 }
 
 /**
  * Find which offers match recipe ingredients
  */
-function findMatchingOffers(recipe: EdamamRecipe, offers: Offer[]): MenuItem['matchedOffers'] {
+function findMatchingOffers(recipe: SpoonacularRecipe, offers: Offer[]): MenuItem['matchedOffers'] {
   const matches: MenuItem['matchedOffers'] = [];
   
-  // Common ingredient keywords to match
-  const ingredientKeywords = recipe.ingredients.map(ing => 
-    ing.food.toLowerCase()
-  );
+  const ingredientNames = recipe.extendedIngredients?.map(ing => 
+    ing.name.toLowerCase()
+  ) || [];
   
   for (const offer of offers) {
     const offerName = offer.name.toLowerCase();
     
-    for (const keyword of ingredientKeywords) {
-      // Check if offer name contains ingredient keyword
-      if (offerName.includes(keyword) || keyword.includes(offerName.split(' ')[0])) {
-        // Avoid duplicates
+    for (const ingredient of ingredientNames) {
+      // Check if offer matches ingredient
+      if (offerName.includes(ingredient) || ingredient.includes(offerName.split(' ')[0])) {
         if (!matches.find(m => m.offerId === offer.id)) {
           matches.push({
             offerId: offer.id,
@@ -159,7 +207,7 @@ export async function generateMenu(
   preferences: UserPreferences,
   offers: Offer[]
 ): Promise<GeneratedMenu> {
-  console.log('[MenuGen] Starting menu generation');
+  console.log('[MenuGen] Starting menu generation with Spoonacular');
   console.log('[MenuGen] Preferences:', JSON.stringify(preferences, null, 2));
   console.log('[MenuGen] Offers count:', offers.length);
   
@@ -167,51 +215,48 @@ export async function generateMenu(
   const offerIngredients = extractSearchableIngredients(offers);
   console.log('[MenuGen] Extracted ingredients from offers:', offerIngredients);
   
+  // Map preferences to Spoonacular format
+  const { intolerances, diet, cuisines } = mapPreferencesToSpoonacular(preferences);
+  
   // Translate dislikes to English
-  const excludedIngredients = translateDislikes(preferences.dislikes);
+  const excludeIngredients = translateDislikes(preferences.dislikes);
   
-  // Generate menu items
+  // Calculate servings range based on household
+  const minServings = Math.max(1, preferences.householdSize - 2);
+  const maxServings = preferences.householdSize + 4;
+  
   const menuItems: MenuItem[] = [];
-  const usedRecipeIds = new Set<string>();
+  const usedRecipeIds = new Set<number>();
   
-  // Determine how many recipes we need
   const numDinners = preferences.mealsPerWeek;
   const numLunches = preferences.includeLunch ? Math.min(5, numDinners) : 0;
   
-  // Search for recipes with different ingredient combinations to get variety
+  // Build search queries from offer ingredients
   const searchQueries: string[] = [];
-  
-  // Primary searches: Use offer ingredients
   if (offerIngredients.length > 0) {
-    // Create different combinations of offer ingredients
-    for (let i = 0; i < Math.min(3, offerIngredients.length); i++) {
-      searchQueries.push(offerIngredients[i]);
-    }
-    // Also try combinations
-    if (offerIngredients.length >= 2) {
-      searchQueries.push(`${offerIngredients[0]} ${offerIngredients[1]}`);
-    }
+    searchQueries.push(...offerIngredients.slice(0, 4));
+  } else {
+    searchQueries.push('chicken dinner', 'pasta', 'beef', 'fish');
   }
   
-  // Fallback searches if no offers
-  if (searchQueries.length === 0) {
-    searchQueries.push('chicken', 'beef', 'salmon', 'pasta', 'vegetable');
-  }
-  
-  // Fetch recipes for each query
-  const allRecipes: EdamamRecipe[] = [];
+  // Fetch recipes
+  const allRecipes: SpoonacularRecipe[] = [];
   
   for (const query of searchQueries) {
     try {
       const recipes = await searchRecipes({
         query,
-        healthLabels: preferences.healthLabels.length > 0 ? preferences.healthLabels : undefined,
-        dietLabels: preferences.dietLabels.length > 0 ? preferences.dietLabels : undefined,
-        cuisineTypes: preferences.cuisineTypes.length > 0 ? preferences.cuisineTypes : undefined,
-        maxTime: preferences.maxCookTime,
-        excluded: excludedIngredients.length > 0 ? excludedIngredients : undefined,
-        mealType: 'lunch/dinner',
-        maxResults: 10,
+        type: 'main course',
+        intolerances: intolerances.length > 0 ? intolerances : undefined,
+        diet: diet,
+        cuisine: cuisines.length > 0 ? cuisines : undefined,
+        excludeIngredients: excludeIngredients.length > 0 ? excludeIngredients : undefined,
+        maxReadyTime: preferences.maxCookTime,
+        minServings,
+        maxServings,
+        number: 10,
+        sort: 'popularity',
+        sortDirection: 'desc',
       });
       
       allRecipes.push(...recipes);
@@ -222,61 +267,89 @@ export async function generateMenu(
   
   console.log(`[MenuGen] Found ${allRecipes.length} total recipes`);
   
-  // Deduplicate and shuffle
+  // Deduplicate
   const uniqueRecipes = allRecipes.filter(r => {
-    const id = r.uri.split('#recipe_')[1];
-    if (usedRecipeIds.has(id)) return false;
+    if (usedRecipeIds.has(r.id)) return false;
     return true;
   });
   
   // Shuffle for variety
   const shuffled = [...uniqueRecipes].sort(() => Math.random() - 0.5);
   
-  // Pick recipes for dinners
+  // Generate menu items
   for (let i = 0; i < numDinners && i < shuffled.length; i++) {
     const recipe = shuffled[i];
-    const recipeId = recipe.uri.split('#recipe_')[1];
-    usedRecipeIds.add(recipeId);
+    usedRecipeIds.add(recipe.id);
     
     const formatted = formatRecipeForDisplay(recipe);
     const matchedOffers = findMatchingOffers(recipe, offers);
     
-    // Translate recipe name (batch this for efficiency)
-    const nameSwedish = await translateRecipeName(recipe.label);
+    // Translate recipe to Swedish
+    const { nameSwedish, ingredientsSwedish, instructionsSwedish } = await translateRecipe(formatted);
     
     menuItems.push({
       day: DAYS_SWEDISH[i],
       dayIndex: i,
       meal: 'dinner',
       recipe: {
-        ...formatted,
+        id: recipe.id,
+        name: formatted.name,
         nameSwedish,
+        image: formatted.image,
+        sourceUrl: formatted.sourceUrl,
+        sourceName: formatted.sourceName,
+        servings: formatted.servings,
+        readyInMinutes: formatted.readyInMinutes,
+        ingredients: formatted.ingredients,
+        ingredientsSwedish,
+        instructions: formatted.instructions,
+        instructionsSwedish,
+        vegetarian: formatted.vegetarian,
+        vegan: formatted.vegan,
+        glutenFree: formatted.glutenFree,
+        dairyFree: formatted.dairyFree,
+        cuisines: formatted.cuisines,
+        summary: formatted.summary,
       },
       matchedOffers,
-      estimatedSavings: matchedOffers.reduce((sum, o) => sum + (o.price * 0.2), 0), // Rough estimate
+      estimatedSavings: matchedOffers.reduce((sum, o) => sum + (o.price * 0.2), 0),
     });
   }
   
-  // Pick recipes for lunches if enabled
+  // Add lunches if enabled
   if (numLunches > 0) {
-    const lunchRecipes = shuffled.filter(r => !usedRecipeIds.has(r.uri.split('#recipe_')[1]));
+    const lunchRecipes = shuffled.filter(r => !usedRecipeIds.has(r.id));
     
     for (let i = 0; i < numLunches && i < lunchRecipes.length; i++) {
       const recipe = lunchRecipes[i];
-      const recipeId = recipe.uri.split('#recipe_')[1];
-      usedRecipeIds.add(recipeId);
+      usedRecipeIds.add(recipe.id);
       
       const formatted = formatRecipeForDisplay(recipe);
       const matchedOffers = findMatchingOffers(recipe, offers);
-      const nameSwedish = await translateRecipeName(recipe.label);
+      const { nameSwedish, ingredientsSwedish, instructionsSwedish } = await translateRecipe(formatted);
       
       menuItems.push({
         day: DAYS_SWEDISH[i],
         dayIndex: i,
         meal: 'lunch',
         recipe: {
-          ...formatted,
+          id: recipe.id,
+          name: formatted.name,
           nameSwedish,
+          image: formatted.image,
+          sourceUrl: formatted.sourceUrl,
+          sourceName: formatted.sourceName,
+          servings: formatted.servings,
+          readyInMinutes: formatted.readyInMinutes,
+          ingredients: formatted.ingredients,
+          ingredientsSwedish,
+          instructions: formatted.instructions,
+          instructionsSwedish,
+          vegetarian: formatted.vegetarian,
+          vegan: formatted.vegan,
+          glutenFree: formatted.glutenFree,
+          dairyFree: formatted.dairyFree,
+          cuisines: formatted.cuisines,
         },
         matchedOffers,
       });
@@ -310,34 +383,32 @@ export async function regenerateMeal(
   preferences: UserPreferences,
   offers: Offer[]
 ): Promise<MenuItem | null> {
-  // Get IDs of recipes already in menu
   const usedRecipeIds = new Set(currentMenu.items.map(i => i.recipe.id));
   
-  // Extract ingredients from offers
   const offerIngredients = extractSearchableIngredients(offers);
   const query = offerIngredients.length > 0 
     ? offerIngredients[Math.floor(Math.random() * offerIngredients.length)]
     : ['chicken', 'beef', 'fish', 'pasta'][Math.floor(Math.random() * 4)];
   
-  const excludedIngredients = translateDislikes(preferences.dislikes);
+  const { intolerances, diet, cuisines } = mapPreferencesToSpoonacular(preferences);
+  const excludeIngredients = translateDislikes(preferences.dislikes);
   
   try {
     const recipes = await searchRecipes({
       query,
-      healthLabels: preferences.healthLabels.length > 0 ? preferences.healthLabels : undefined,
-      dietLabels: preferences.dietLabels.length > 0 ? preferences.dietLabels : undefined,
-      cuisineTypes: preferences.cuisineTypes.length > 0 ? preferences.cuisineTypes : undefined,
-      maxTime: preferences.maxCookTime,
-      excluded: excludedIngredients.length > 0 ? excludedIngredients : undefined,
-      mealType: 'lunch/dinner',
-      maxResults: 20,
+      type: 'main course',
+      intolerances: intolerances.length > 0 ? intolerances : undefined,
+      diet,
+      cuisine: cuisines.length > 0 ? cuisines : undefined,
+      excludeIngredients: excludeIngredients.length > 0 ? excludeIngredients : undefined,
+      maxReadyTime: preferences.maxCookTime,
+      minServings: Math.max(1, preferences.householdSize - 2),
+      maxServings: preferences.householdSize + 4,
+      number: 20,
+      sort: 'random',
     });
     
-    // Find a recipe not already in the menu
-    const newRecipe = recipes.find(r => {
-      const id = r.uri.split('#recipe_')[1];
-      return !usedRecipeIds.has(id);
-    });
+    const newRecipe = recipes.find(r => !usedRecipeIds.has(r.id));
     
     if (!newRecipe) {
       return null;
@@ -345,15 +416,30 @@ export async function regenerateMeal(
     
     const formatted = formatRecipeForDisplay(newRecipe);
     const matchedOffers = findMatchingOffers(newRecipe, offers);
-    const nameSwedish = await translateRecipeName(newRecipe.label);
+    const { nameSwedish, ingredientsSwedish, instructionsSwedish } = await translateRecipe(formatted);
     
     return {
       day: DAYS_SWEDISH[dayIndex],
       dayIndex,
       meal,
       recipe: {
-        ...formatted,
+        id: newRecipe.id,
+        name: formatted.name,
         nameSwedish,
+        image: formatted.image,
+        sourceUrl: formatted.sourceUrl,
+        sourceName: formatted.sourceName,
+        servings: formatted.servings,
+        readyInMinutes: formatted.readyInMinutes,
+        ingredients: formatted.ingredients,
+        ingredientsSwedish,
+        instructions: formatted.instructions,
+        instructionsSwedish,
+        vegetarian: formatted.vegetarian,
+        vegan: formatted.vegan,
+        glutenFree: formatted.glutenFree,
+        dairyFree: formatted.dairyFree,
+        cuisines: formatted.cuisines,
       },
       matchedOffers,
       estimatedSavings: matchedOffers.reduce((sum, o) => sum + (o.price * 0.2), 0),
