@@ -69,17 +69,19 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              🍽️ Veckomeny
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">—</div>
-            <p className="text-sm text-gray-500">ej genererad</p>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/menu">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                🍽️ Veckomeny
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">→</div>
+              <p className="text-sm text-gray-500">Gå till veckomeny</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* User's stores */}
@@ -107,10 +109,9 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      {/* Quick actions */}
-      <div className={`grid gap-6 mb-8 ${hasStores ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
-        {/* Only show "Välj butiker" if user has no stores */}
-        {!hasStores && (
+      {/* Quick actions - only show if user needs to do something */}
+      {!hasStores && (
+        <div className="grid gap-6 mb-8">
           <Card className="ring-2 ring-green-500">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -118,7 +119,7 @@ export default async function DashboardPage() {
                 <Badge className="bg-green-500">Starta här</Badge>
               </CardTitle>
               <CardDescription>
-                Välj vilka butiker du handlar i
+                Välj vilka butiker du handlar i för att komma igång
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -127,98 +128,54 @@ export default async function DashboardPage() {
               </Button>
             </CardContent>
           </Card>
-        )}
+        </div>
+      )}
 
-        <Card className={!hasStores ? "opacity-75" : ""}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span>🏷️</span> Veckans deals
-            </CardTitle>
-            <CardDescription>
-              {hasOffers 
-                ? `${offerCount} erbjudanden tillgängliga`
-                : "Välj butiker först"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" className="w-full" disabled={!hasStores}>
-              <Link href="/dashboard/deals">Visa erbjudanden</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
+      {/* Getting started checklist - only show for new users */}
+      {!hasStores && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span>🍽️</span> Skapa veckomeny
-            </CardTitle>
-            <CardDescription>
-              Låt AI skapa din meny
-            </CardDescription>
+            <CardTitle>Kom igång</CardTitle>
+            <CardDescription>Följ dessa steg för att börja använda SmartaMenyn</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/menu">Generera meny</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Getting started checklist */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Kom igång</CardTitle>
-          <CardDescription>Följ dessa steg för att börja använda SmartaMenyn</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                hasStores ? "bg-green-500 text-white" : "bg-green-100 text-green-600"
-              }`}>
-                {hasStores ? "✓" : "1"}
-              </div>
-              <div className="flex-1">
-                <p className={`font-medium ${hasStores ? "line-through text-gray-400" : ""}`}>
-                  Välj dina butiker
-                </p>
-                <p className="text-sm text-gray-500">
-                  {hasStores ? `${storeCount} butiker valda` : "Vilka butiker handlar du i?"}
-                </p>
-              </div>
-              {!hasStores && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold">
+                  1
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Välj dina butiker</p>
+                  <p className="text-sm text-gray-500">Vilka butiker handlar du i?</p>
+                </div>
                 <Button asChild size="sm">
                   <Link href="/dashboard/stores">Gör nu</Link>
                 </Button>
-              )}
-            </div>
+              </div>
 
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold">
-                2
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold">
+                  2
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-400">Kolla veckans erbjudanden</p>
+                  <p className="text-sm text-gray-400">Se deals från dina butiker</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="font-medium">Ange dina matpreferenser</p>
-                <p className="text-sm text-gray-500">Vad gillar och ogillar du?</p>
-              </div>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/dashboard/settings">Inställningar</Link>
-              </Button>
-            </div>
 
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold">
-                3
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold">
+                  3
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-400">Generera din veckomeny</p>
+                  <p className="text-sm text-gray-400">Låt AI skapa veckans meny</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="font-medium">Generera din första meny</p>
-                <p className="text-sm text-gray-500">Låt AI skapa veckans meny</p>
-              </div>
-              <Badge variant="outline">Kommer snart</Badge>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
