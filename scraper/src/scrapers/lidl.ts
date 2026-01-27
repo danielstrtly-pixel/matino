@@ -195,10 +195,7 @@ export class LidlScraper extends BaseScraper {
             }
           }
           
-          // Upgrade to larger image size if needed
-          if (imageUrl) {
-            imageUrl = imageUrl.replace(/\/w:\d+\//, '/w:400/');
-          }
+          // Keep original URL - don't modify width/height as it breaks imgproxy hash
           
           if (name && priceText) {
             products.push({ name, priceText, imageUrl });
