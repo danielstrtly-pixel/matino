@@ -336,18 +336,23 @@ export class HemkopScraper extends BaseScraper {
         
         // Try to extract price from aria-label: "Munkar, SEK 5" or "Blandfärs, SEK 49.95"
         const sekMatch = ariaLabel.match(/^(.+?),\s*SEK\s*([\d.]+)$/i);
+        let quantityFromLabel: number | undefined;
+        let quantityPriceFromLabel: number | undefined;
+        
         if (sekMatch) {
           name = sekMatch[1].trim();
           priceFromLabel = parseFloat(sekMatch[2]);
           
-          // Check if this is a "X FÖR" deal - if so, divide by X
+          // Check if this is a "X FÖR" deal
           // Look for pattern like "2 FÖR" in the full text
           const forMatch = fullText.match(/(\d+)\s*FÖR\s*$/i) || fullText.match(/(\d+)\s*FÖR\s/i);
           if (forMatch) {
-            const quantity = parseInt(forMatch[1]);
-            if (quantity > 1) {
-              // priceFromLabel is the TOTAL price, divide by quantity
-              priceFromLabel = Math.round((priceFromLabel / quantity) * 100) / 100;
+            const qty = parseInt(forMatch[1]);
+            if (qty > 1) {
+              // priceFromLabel is the TOTAL/PACKAGE price - keep it!
+              // Calculate per-unit price for comparison
+              quantityFromLabel = qty;
+              quantityPriceFromLabel = Math.round((priceFromLabel / qty) * 100) / 100;
             }
           }
         }
@@ -376,8 +381,8 @@ export class HemkopScraper extends BaseScraper {
         
         // Get the offer price
         let offerPrice: number | undefined = priceFromLabel;
-        let quantity: number | undefined;
-        let quantityPrice: number | undefined;
+        let quantity: number | undefined = quantityFromLabel;
+        let quantityPrice: number | undefined = quantityPriceFromLabel;
         let unit: string | undefined;
         
         // If no price from aria-label, extract from paragraphs
@@ -404,8 +409,10 @@ export class HemkopScraper extends BaseScraper {
               const decimal = priceBeforeFor[2] ? parseInt(priceBeforeFor[2]) : 0;
               const totalPrice = whole + decimal / 100;
               quantity = parseInt(forAfterPrice[1]);
-              quantityPrice = totalPrice;
-              offerPrice = Math.round((totalPrice / quantity) * 100) / 100;
+              // offerPrice = package price (e.g., 50 for "2 för 50 kr")
+              // quantityPrice = per-unit price for comparison
+              offerPrice = totalPrice;
+              quantityPrice = Math.round((totalPrice / quantity) * 100) / 100;
               break;
             }
             

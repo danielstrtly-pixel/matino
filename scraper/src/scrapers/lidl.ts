@@ -169,9 +169,12 @@ export class LidlScraper extends BaseScraper {
           const titleEl = item.querySelector('.odsc-tile__link, [class*="name"], [class*="title"], h2, h3, h4');
           name = titleEl?.textContent?.trim() || null;
           
-          // Find price
+          // Find price - check for "X för Y kr" pattern
           const priceEl = item.querySelector('[class*="price"]:not([class*="original"]):not([class*="old"]), [class*="Price"]:not([class*="original"]):not([class*="old"])');
           const priceText = priceEl?.textContent?.trim();
+          
+          // Get all text from element to check for "X för Y" pattern
+          const fullText = item.textContent || '';
           
           // Find image - use Lidl's specific selector: img.odsc-image-gallery__image
           // AVOID: img.seal__badge (quality badges)
@@ -197,8 +200,15 @@ export class LidlScraper extends BaseScraper {
           
           // Keep original URL - don't modify width/height as it breaks imgproxy hash
           
+          // Check for "X för Y kr" pattern in full text
+          let quantity: number | undefined;
+          const forMatch = fullText.match(/(\d+)\s*för\s*(\d+)\s*kr/i);
+          if (forMatch) {
+            quantity = parseInt(forMatch[1]);
+          }
+          
           if (name && priceText) {
-            products.push({ name, priceText, imageUrl });
+            products.push({ name, priceText, imageUrl, quantity });
           }
         } catch (e) {
           // Skip problematic elements
@@ -226,10 +236,16 @@ export class LidlScraper extends BaseScraper {
         // Classify category
         const category = getCategory(undefined, name, 'lidl');
         
+        // Handle quantity (X för Y kr)
+        const quantity = raw.quantity && raw.quantity > 1 ? raw.quantity : undefined;
+        const quantityPrice = quantity ? Math.round((offerPrice / quantity) * 100) / 100 : undefined;
+        
         const offer: Offer = {
           id: this.generateOfferId('lidl', store.externalId, name),
           name,
           offerPrice,
+          quantity,
+          quantityPrice,
           imageUrl: raw.imageUrl || undefined,
           storeId: store.id,
           chain: 'lidl',
