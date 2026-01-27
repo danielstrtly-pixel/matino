@@ -14,14 +14,18 @@ export async function GET(request: Request) {
     // get offers from user's selected stores
     let userStoreIds: string[] = [];
     if (!storeId && !chainId && user) {
-      const { data: userStores } = await supabase
+      const { data: userStores, error: storesError } = await supabase
         .from('user_stores')
         .select('store_id')
         .eq('user_id', user.id);
       
+      console.log('[offers] user:', user?.id, 'userStores:', userStores, 'error:', storesError);
+      
       if (userStores && userStores.length > 0) {
         userStoreIds = userStores.map((us: any) => us.store_id);
       }
+    } else {
+      console.log('[offers] no user or specific filter - storeId:', storeId, 'chainId:', chainId, 'user:', user?.id);
     }
     
     let query = supabase
