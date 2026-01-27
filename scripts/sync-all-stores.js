@@ -22,11 +22,14 @@ async function main() {
   console.log(`Scraper: ${SCRAPER_URL}`);
   console.log(`Cooldown: ${COOLDOWN_HOURS}h\n`);
 
-  // Get all unique stores that users have selected
+  // Get all unique stores that users have selected OR are demo/featured stores
+  // Demo stores are always synced (Lidl, Coop Erik Dahlbergsgatan) for landing page
   const { rows: stores } = await client.query(`
     SELECT DISTINCT s.id, s.name, s.chain_id, s.external_id, s.offers_url, s.last_synced_at
     FROM stores s
-    INNER JOIN user_stores us ON s.id = us.store_id
+    LEFT JOIN user_stores us ON s.id = us.store_id
+    WHERE us.store_id IS NOT NULL
+       OR s.chain_id IN ('lidl', 'coop')
   `);
 
   console.log(`Found ${stores.length} stores to check\n`);
