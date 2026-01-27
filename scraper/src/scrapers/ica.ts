@@ -331,6 +331,8 @@ export class ICAScraper extends BaseScraper {
         name: string;
         brand: string | undefined;
         offerPrice: number;
+        quantity: number | undefined;
+        quantityPrice: number | undefined;
         imageUrl: string | undefined;
         storeId: string;
         chain: string;
@@ -344,9 +346,25 @@ export class ICAScraper extends BaseScraper {
       for (const el of allElements) {
         const text = el.textContent || '';
         
-        // Must have a price pattern (XX:- or XX kr)
-        const priceMatch = text.match(/(\d+)[:\s]*[-–]?\s*(?:kr|\/)/i) || text.match(/(\d+)\s*kr/i);
-        if (!priceMatch) continue;
+        let price: number | null = null;
+        let quantity: number | undefined = undefined;
+        let quantityPrice: number | undefined = undefined;
+        
+        // Check for "X för Y kr" format first (e.g., "3 för 89 kr")
+        const multiMatch = text.match(/(\d+)\s*för\s*(\d+)\s*kr/i);
+        if (multiMatch) {
+          quantity = parseInt(multiMatch[1], 10);
+          price = parseInt(multiMatch[2], 10);
+          quantityPrice = Math.round((price / quantity) * 100) / 100;
+        } else {
+          // Regular price pattern (XX:- or XX kr)
+          const priceMatch = text.match(/(\d+)[:\s]*[-–]?\s*(?:kr|\/)/i) || text.match(/(\d+)\s*kr/i);
+          if (priceMatch) {
+            price = parseInt(priceMatch[1], 10);
+          }
+        }
+        
+        if (!price) continue;
         
         // Get all text nodes
         const h2 = el.querySelector('h2, h3, h4');
@@ -364,13 +382,14 @@ export class ICAScraper extends BaseScraper {
         const p = el.querySelector('p');
         const brand = p?.textContent?.trim();
         
-        const price = parseInt(priceMatch[1], 10);
         if (price > 0 && price < 10000) {
           offers.push({
             id: `ica-${storeData.externalId}-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
             name,
             brand,
             offerPrice: price,
+            quantity,
+            quantityPrice,
             imageUrl,
             storeId: storeData.id,
             chain: 'ica',
@@ -402,10 +421,24 @@ export class ICAScraper extends BaseScraper {
       const brandEl = await element.$('[class*="brand"], [class*="manufacturer"], span:first-child');
       const brand = brandEl ? (await brandEl.textContent())?.trim() : undefined;
 
-      // Extract price
+      // Extract price - check for "X för Y kr" format first
       const priceEl = await element.$('[class*="price"], [class*="pris"]');
       const priceText = priceEl ? (await priceEl.textContent())?.trim() : '';
-      const offerPrice = this.parsePrice(priceText || '');
+      
+      let offerPrice: number | undefined = undefined;
+      let quantity: number | undefined = undefined;
+      let quantityPrice: number | undefined = undefined;
+      
+      // Check for "X för Y kr" format (e.g., "3 för 89 kr")
+      const multiMatch = priceText?.match(/(\d+)\s*för\s*(\d+)\s*kr/i);
+      if (multiMatch) {
+        quantity = parseInt(multiMatch[1], 10);
+        offerPrice = parseInt(multiMatch[2], 10);
+        quantityPrice = Math.round((offerPrice / quantity) * 100) / 100;
+      } else {
+        offerPrice = this.parsePrice(priceText || '');
+      }
+      
       if (!offerPrice) return null;
 
       // Extract original price (if on sale)
@@ -439,6 +472,8 @@ export class ICAScraper extends BaseScraper {
         description,
         originalPrice,
         offerPrice,
+        quantity,
+        quantityPrice,
         unit: this.parseUnit(priceText || ''),
         savings,
         imageUrl: imageUrl || undefined,

@@ -267,10 +267,17 @@ export class CoopScraper extends BaseScraper {
         // Classify category
         const category = getCategory(undefined, name, 'coop');
         
+        // If quantity > 1 (e.g. "3 för 50 kr"), store package price and quantity
+        // quantity_price = per-unit price for comparison
+        const quantity = raw.quantity && raw.quantity > 1 ? raw.quantity : undefined;
+        const quantityPrice = quantity ? Math.round((offerPrice / quantity) * 100) / 100 : undefined;
+        
         const offer: Offer = {
           id: this.generateOfferId('coop', store.externalId, name),
           name,
-          offerPrice,
+          offerPrice, // This is the package price (e.g. 50 for "3 för 50 kr")
+          quantity,   // Number of items (e.g. 3)
+          quantityPrice, // Per-unit price (e.g. 16.67)
           imageUrl: raw.imageUrl || undefined,
           storeId: store.id,
           chain: 'coop',
