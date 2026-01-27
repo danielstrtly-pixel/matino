@@ -5,20 +5,23 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
+// Stripe Price IDs
+const PRICE_IDS = {
+  monthly: 'price_1SuJbMDuDLkFmbXTzIU6ivEz',
+  yearly: 'price_1SuJbuDuDLkFmbXTHDCXXblC',
+};
+
 interface PricingSectionProps {
   isLoggedIn: boolean;
-  prices: {
-    monthly?: { id: string; unit_amount: number };
-    yearly?: { id: string; unit_amount: number };
-  };
 }
 
-export function PricingSection({ isLoggedIn, prices }: PricingSectionProps) {
+export function PricingSection({ isLoggedIn }: PricingSectionProps) {
   const [loading, setLoading] = useState<'monthly' | 'yearly' | null>(null);
 
-  const handleCheckout = async (priceId: string, plan: 'monthly' | 'yearly') => {
+  const handleCheckout = async (plan: 'monthly' | 'yearly') => {
     setLoading(plan);
     try {
+      const priceId = PRICE_IDS[plan];
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,18 +31,20 @@ export function PricingSection({ isLoggedIn, prices }: PricingSectionProps) {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        console.error('No checkout URL returned');
+        console.error('No checkout URL returned:', data);
+        alert('Kunde inte starta checkout. Försök igen.');
       }
     } catch (error) {
       console.error('Checkout error:', error);
+      alert('Något gick fel. Försök igen.');
     } finally {
       setLoading(null);
     }
   };
 
-  // Fallback prices if not loaded from Stripe yet
-  const monthlyAmount = prices.monthly?.unit_amount ? prices.monthly.unit_amount / 100 : 69;
-  const yearlyAmount = prices.yearly?.unit_amount ? prices.yearly.unit_amount / 100 : 499;
+  // Fixed prices
+  const monthlyAmount = 69;
+  const yearlyAmount = 499;
   const yearlyMonthlyEquivalent = monthlyAmount * 12;
   const savings = yearlyMonthlyEquivalent - yearlyAmount;
   const savingsPercent = Math.round((savings / yearlyMonthlyEquivalent) * 100);
@@ -78,19 +83,15 @@ export function PricingSection({ isLoggedIn, prices }: PricingSectionProps) {
                 <Button asChild variant="outline" size="lg" className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark">
                   <Link href="/signup">Prova gratis i 7 dagar</Link>
                 </Button>
-              ) : prices.monthly?.id ? (
+              ) : (
                 <Button 
                   variant="outline" 
                   size="lg" 
                   className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark"
-                  onClick={() => handleCheckout(prices.monthly!.id, 'monthly')}
+                  onClick={() => handleCheckout('monthly')}
                   disabled={loading === 'monthly'}
                 >
                   {loading === 'monthly' ? 'Laddar...' : 'Välj månadsabo'}
-                </Button>
-              ) : (
-                <Button variant="outline" size="lg" className="w-full rounded-full py-5 border-charcoal/20" disabled>
-                  Kommer snart
                 </Button>
               )}
             </CardContent>
@@ -125,18 +126,14 @@ export function PricingSection({ isLoggedIn, prices }: PricingSectionProps) {
                 <Button asChild size="lg" className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg">
                   <Link href="/signup">Prova gratis i 7 dagar</Link>
                 </Button>
-              ) : prices.yearly?.id ? (
+              ) : (
                 <Button 
                   size="lg" 
                   className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg"
-                  onClick={() => handleCheckout(prices.yearly!.id, 'yearly')}
+                  onClick={() => handleCheckout('yearly')}
                   disabled={loading === 'yearly'}
                 >
                   {loading === 'yearly' ? 'Laddar...' : 'Välj årsabo'}
-                </Button>
-              ) : (
-                <Button size="lg" className="w-full bg-orange/50 text-white rounded-full py-5 text-lg" disabled>
-                  Kommer snart
                 </Button>
               )}
             </CardContent>
