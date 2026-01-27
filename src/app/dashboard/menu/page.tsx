@@ -52,17 +52,80 @@ interface AIMenuItem {
 }
 
 interface AIGeneratedMenu {
+  id?: string;
+  name?: string;
   items: AIMenuItem[];
   generatedAt: string;
-  model: string;
+  model?: string;
 }
 
-export default function AIMenuPage() {
+interface SavedMenu {
+  id: string;
+  name: string;
+  created_at: string;
+  is_active: boolean;
+}
+
+export default function MenuPage() {
   const [menu, setMenu] = useState<AIGeneratedMenu | null>(null);
+  const [savedMenus, setSavedMenus] = useState<SavedMenu[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [swapping, setSwapping] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<AIMenuItem | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load saved menu on mount
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        const res = await fetch('/api/ai/menu');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.menu) {
+            setMenu(data.menu);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load menu:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadMenu();
+  }, []);
+
+  // Load menu history
+  const loadHistory = async () => {
+    try {
+      const res = await fetch('/api/ai/menu?all=true');
+      if (res.ok) {
+        const data = await res.json();
+        setSavedMenus(data.menus || []);
+      }
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    }
+  };
+
+  const loadSpecificMenu = async (menuId: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/ai/menu?id=${menuId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.menu) {
+          setMenu(data.menu);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load menu:', e);
+    } finally {
+      setLoading(false);
+      setShowHistory(false);
+    }
+  };
 
   const generateMenu = async () => {
     setGenerating(true);
@@ -140,21 +203,37 @@ export default function AIMenuPage() {
           <p className="text-gray-600 mt-2">
             Recept skapade utifrån dina preferenser och veckans erbjudanden.
           </p>
-        </div>
-        <Button 
-          onClick={generateMenu} 
-          disabled={generating}
-          size="lg"
-        >
-          {generating ? (
-            <>
-              <span className="animate-spin mr-2">⏳</span>
-              Genererar...
-            </>
-          ) : (
-            <>🤖 {menu ? 'Generera ny meny' : 'Skapa veckomeny'}</>
+          {menu?.name && (
+            <p className="text-sm text-green-600 mt-1">
+              📅 {menu.name} • Skapad {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
+            </p>
           )}
-        </Button>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => {
+              loadHistory();
+              setShowHistory(true);
+            }}
+          >
+            📋 Tidigare menyer
+          </Button>
+          <Button 
+            onClick={generateMenu} 
+            disabled={generating}
+            size="lg"
+          >
+            {generating ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                Genererar...
+              </>
+            ) : (
+              <>🤖 {menu ? 'Ny meny' : 'Skapa veckomeny'}</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -164,7 +243,7 @@ export default function AIMenuPage() {
       )}
 
       {/* Loading state */}
-      {generating && (
+      {(generating || loading) && (
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map((i) => (
             <Card key={i}>
@@ -182,7 +261,7 @@ export default function AIMenuPage() {
       )}
 
       {/* Empty state */}
-      {!generating && !menu && (
+      {!generating && !loading && !menu && (
         <Card className="text-center py-12">
           <CardContent>
             <div className="text-6xl mb-4">🤖</div>
@@ -195,7 +274,7 @@ export default function AIMenuPage() {
       )}
 
       {/* Menu cards */}
-      {!generating && menu && (
+      {!generating && !loading && menu && (
         <div className="space-y-4">
           {menu.items.map((item) => {
             const isSwapping = swapping === `${item.dayIndex}-${item.meal}`;
@@ -341,6 +420,51 @@ export default function AIMenuPage() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Menu history dialog */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tidigare menyer</DialogTitle>
+            <DialogDescription>Välj en tidigare meny att visa</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {savedMenus.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Inga sparade menyer ännu
+              </p>
+            )}
+            {savedMenus.map((savedMenu) => (
+              <button
+                key={savedMenu.id}
+                onClick={() => loadSpecificMenu(savedMenu.id)}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  savedMenu.is_active 
+                    ? 'border-green-500 bg-green-50' 
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{savedMenu.name || 'Meny'}</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(savedMenu.created_at).toLocaleDateString('sv-SE', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  {savedMenu.is_active && (
+                    <Badge className="bg-green-100 text-green-800">Aktiv</Badge>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
