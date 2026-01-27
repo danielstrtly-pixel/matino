@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { SubscriptionCard } from "@/components/SubscriptionCard";
 
 // Edamam-compatible options
 const HEALTH_OPTIONS = [
@@ -521,28 +522,8 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Subscription placeholder */}
-        <Card>
-          <CardHeader>
-            <CardTitle>💳 Prenumeration</CardTitle>
-            <CardDescription>Hantera din betalning</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg mb-4">
-              <div>
-                <p className="font-medium">Gratis provperiod</p>
-                <p className="text-sm text-gray-500">6 dagar kvar</p>
-              </div>
-              <Badge className="bg-green-100 text-green-800">Aktiv</Badge>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">
-              Efter provperioden: 69 kr/mån. Avsluta när du vill.
-            </p>
-            <Button variant="outline" disabled>
-              Hantera prenumeration (kommer snart)
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Subscription */}
+        <SubscriptionCard />
       </div>
     </div>
   );
