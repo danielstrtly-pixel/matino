@@ -149,65 +149,55 @@ export class LidlScraper extends BaseScraper {
     const rawProducts = await page.evaluate(() => {
       const products: any[] = [];
       
-      // Find elements with price and look for product info nearby
+      // Use Lidl's specific product grid structure
       let items: Element[] = [];
       
-      // Method 1: Look for product grid items
-      const gridItems = document.querySelectorAll('[class*="AProductGrid"] > div, [class*="ProductGrid"] > div, [class*="productgrid"] > div');
-      items = Array.from(gridItems);
-      
-      // Method 2: Find elements with price that have a name nearby
-      if (items.length === 0) {
-        const priceElements = document.querySelectorAll('[class*="price"], [class*="Price"]');
-        priceElements.forEach(priceEl => {
-          // Walk up to find a reasonable container
-          let parent = priceEl.parentElement;
-          for (let i = 0; i < 5 && parent; i++) {
-            const className = parent.className || '';
-            if (className.includes('product') || className.includes('Product') || 
-                className.includes('item') || className.includes('Item') ||
-                className.includes('card') || className.includes('Card')) {
-              if (!items.includes(parent)) {
-                items.push(parent);
-              }
-              break;
-            }
-            parent = parent.parentElement;
-          }
-        });
+      // Primary: Look for .product-grid-box (Lidl's product container)
+      const productBoxes = document.querySelectorAll('.product-grid-box');
+      if (productBoxes.length > 0) {
+        items = Array.from(productBoxes);
+      } else {
+        // Fallback: older selectors
+        const gridItems = document.querySelectorAll('[class*="AProductGrid"] > div, [class*="ProductGrid"] > div');
+        items = Array.from(gridItems);
       }
       
       items.forEach(item => {
         try {
-          // Find name (look for common patterns)
-          const nameEl = item.querySelector('[class*="name"], [class*="Name"], [class*="title"], [class*="Title"], h2, h3, h4');
-          const name = nameEl?.textContent?.trim();
+          // Find name - use Lidl's specific selectors
+          let name: string | null = null;
+          const titleEl = item.querySelector('.odsc-tile__link, [class*="name"], [class*="title"], h2, h3, h4');
+          name = titleEl?.textContent?.trim() || null;
           
           // Find price
           const priceEl = item.querySelector('[class*="price"]:not([class*="original"]):not([class*="old"]), [class*="Price"]:not([class*="original"]):not([class*="old"])');
           const priceText = priceEl?.textContent?.trim();
           
-          // Find image - look for product images specifically
+          // Find image - use Lidl's specific selector: img.odsc-image-gallery__image
+          // AVOID: img.seal__badge (quality badges)
           let imageUrl: string | null = null;
-          const imgElements = item.querySelectorAll('img');
-          for (const img of Array.from(imgElements)) {
-            let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
-            // Skip tiny placeholders, icons, and data URLs
-            if (src.startsWith('data:')) continue;
-            if (src.includes('placeholder')) continue;
-            if (src.includes('icon')) continue;
-            // Prefer Lidl's imgproxy images
-            if (src.includes('imgproxy') || src.includes('assets.schwarz')) {
-              // Upgrade thumbnail to larger image (replace w:140 with w:400)
-              src = src.replace(/\/w:\d+\//, '/w:400/');
-              imageUrl = src;
-              break;
+          
+          // Primary: Lidl's main product image class
+          const mainImg = item.querySelector('img.odsc-image-gallery__image') as HTMLImageElement;
+          if (mainImg) {
+            imageUrl = mainImg.getAttribute('src') || mainImg.getAttribute('data-src') || null;
+          }
+          
+          // Fallback: any img that's not a badge
+          if (!imageUrl) {
+            const imgs = item.querySelectorAll('img:not(.seal__badge)');
+            for (const img of Array.from(imgs)) {
+              const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+              if (src && !src.startsWith('data:') && src.includes('assets.schwarz')) {
+                imageUrl = src;
+                break;
+              }
             }
-            // Fallback to any reasonable image
-            const width = parseInt(img.getAttribute('width') || '0', 10);
-            if (width >= 100 || !imageUrl) {
-              imageUrl = src;
-            }
+          }
+          
+          // Upgrade to larger image size if needed
+          if (imageUrl) {
+            imageUrl = imageUrl.replace(/\/w:\d+\//, '/w:400/');
           }
           
           if (name && priceText) {
