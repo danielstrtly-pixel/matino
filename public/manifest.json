@@ -1,6 +1,6 @@
 {
-  "name": "Matino – Spara pengar på maten",
-  "short_name": "Matino",
+  "name": "SmartaMenyn – Spara pengar på maten",
+  "short_name": "SmartaMenyn",
   "description": "Hitta veckans bästa matpriser och spara pengar",
   "start_url": "/",
   "display": "standalone",

@@ -11,7 +11,7 @@ async function main() {
 
   if (!command || command === 'help') {
     console.log(`
-Matino Scraper CLI
+SmartaMenyn Scraper CLI
 
 Usage:
   npx tsx src/cli.ts <command> <chain> [options]

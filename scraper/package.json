@@ -1,5 +1,5 @@
 {
-  "name": "matino-scraper",
+  "name": "smartamenyn-scraper",
   "version": "1.0.0",
   "description": "Scraper service for Swedish grocery store offers",
   "main": "dist/index.js",

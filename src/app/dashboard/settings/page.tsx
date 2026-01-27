@@ -106,7 +106,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-bold">Inställningar</h1>
           <p className="text-gray-600 mt-2">
-            Anpassa Matino efter dina preferenser.
+            Anpassa SmartaMenyn efter dina preferenser.
           </p>
         </div>
         <div className="flex items-center gap-3">

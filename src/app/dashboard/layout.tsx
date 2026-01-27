@@ -31,7 +31,7 @@ export default async function DashboardLayout({
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="text-2xl">🥗</span>
-            <span className="text-xl font-serif font-bold text-charcoal">Matino</span>
+            <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
           </Link>
           
           {/* Desktop nav */}

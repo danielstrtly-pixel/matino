@@ -153,7 +153,7 @@ app.get('/validate/:chain', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Matino Scraper API running on port ${PORT}`);
+  console.log(`🚀 SmartaMenyn Scraper API running on port ${PORT}`);
   console.log(`   Supported chains: ${getSupportedChains().join(', ')}`);
   console.log(`   Health check: http://localhost:${PORT}/health`);
 });

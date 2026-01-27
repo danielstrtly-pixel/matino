@@ -1,5 +1,5 @@
 /**
- * Standard category mapping for Matino
+ * Standard category mapping for SmartaMenyn
  * Maps various store-specific categories to our unified categories
  */
 

@@ -1,5 +1,5 @@
 /**
- * Client for the Matino Scraper API
+ * Client for the SmartaMenyn Scraper API
  */
 
 const SCRAPER_URL = process.env.SCRAPER_URL || 'http://localhost:3001';

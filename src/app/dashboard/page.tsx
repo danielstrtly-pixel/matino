@@ -37,7 +37,7 @@ export default async function DashboardPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Välkommen till Matino! 👋</h1>
+        <h1 className="text-3xl font-bold">Välkommen till SmartaMenyn! 👋</h1>
         <p className="text-gray-600 mt-2">
           {user?.email}
         </p>
@@ -168,7 +168,7 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Kom igång</CardTitle>
-          <CardDescription>Följ dessa steg för att börja använda Matino</CardDescription>
+          <CardDescription>Följ dessa steg för att börja använda SmartaMenyn</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

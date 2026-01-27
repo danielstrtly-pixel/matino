@@ -1,4 +1,4 @@
-# Matino Design System
+# SmartaMenyn Design System
 
 ## 🎨 Colors
 

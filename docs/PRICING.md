@@ -1,8 +1,8 @@
-# Prishantering i Matino
+# Prishantering i SmartaMenyn
 
 ## Översikt
 
-Matino hanterar två typer av priser:
+SmartaMenyn hanterar två typer av priser:
 1. **Styckpris** - t.ex. "29 kr" för en enskild produkt
 2. **Paketpris** - t.ex. "3 för 89 kr" (multi-buy erbjudanden)
 

@@ -38,7 +38,7 @@ async function test(name: string, fn: () => Promise<void>): Promise<void> {
 }
 
 async function runTests(): Promise<void> {
-  console.log('\n🧪 Running Matino Scraper Tests\n');
+  console.log('\n🧪 Running SmartaMenyn Scraper Tests\n');
   console.log('=' .repeat(50));
 
   // Test ICA

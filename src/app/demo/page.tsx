@@ -23,7 +23,7 @@ export default function DemoPage() {
       <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl">🥗</span>
-          <span className="text-xl font-bold text-green-800">Matino</span>
+          <span className="text-xl font-bold text-green-800">SmartaMenyn</span>
         </Link>
         <div className="flex items-center gap-4">
           <Badge variant="secondary">Demo-läge</Badge>
@@ -35,7 +35,7 @@ export default function DemoPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Prova Matino</h1>
+          <h1 className="text-3xl font-bold mb-2">Prova SmartaMenyn</h1>
           <p className="text-gray-600">
             Här ser du ett exempel på hur tjänsten fungerar. Skapa ett konto för full tillgång.
           </p>

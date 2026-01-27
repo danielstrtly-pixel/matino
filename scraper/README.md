@@ -1,4 +1,4 @@
-# Matino Scraper Service 🏷️
+# SmartaMenyn Scraper Service 🏷️
 
 Headless browser-based scraper for Swedish grocery store offers.
 
@@ -96,7 +96,7 @@ npx tsx src/cli.ts validate ica
 npm test
 
 # Output:
-# 🧪 Running Matino Scraper Tests
+# 🧪 Running SmartaMenyn Scraper Tests
 # 
 # 📍 ICA Tests:
 #   ✅ ICA validation
@@ -185,4 +185,4 @@ The scrapers include delays to avoid rate limiting. If you hit issues:
 
 ---
 
-Made for Matino 🥗
+Made for SmartaMenyn 🥗

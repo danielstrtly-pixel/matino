@@ -10,7 +10,7 @@ export default function Home() {
       <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🥗</span>
-          <span className="text-xl font-serif font-bold text-charcoal">Matino</span>
+          <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
         </div>
         <div className="hidden md:flex items-center gap-8">
           <Link href="#how-it-works" className="text-charcoal/70 hover:text-charcoal transition-colors">
@@ -46,7 +46,7 @@ export default function Home() {
               matplaner
             </h1>
             <p className="text-lg text-charcoal/70 mb-8 max-w-lg">
-              Matino hittar veckans bästa erbjudanden från dina favoritbutiker och 
+              SmartaMenyn hittar veckans bästa erbjudanden från dina favoritbutiker och 
               skapar personliga veckomenyer med AI. Spara tid och pengar.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -148,7 +148,7 @@ export default function Home() {
       <section id="features" className="bg-fresh text-white py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-serif font-bold">Varför Matino?</h2>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold">Varför SmartaMenyn?</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
@@ -204,9 +204,9 @@ export default function Home() {
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xl">🥗</span>
-            <span className="font-serif font-bold text-charcoal">Matino</span>
+            <span className="font-serif font-bold text-charcoal">SmartaMenyn</span>
           </div>
-          <p className="text-charcoal/50 text-sm">© 2026 Matino. Gjord med 🥗 i Stockholm.</p>
+          <p className="text-charcoal/50 text-sm">© 2026 SmartaMenyn. Gjord med 🥗 i Stockholm.</p>
           <div className="flex gap-6 text-sm text-charcoal/50">
             <Link href="#" className="hover:text-charcoal">Integritet</Link>
             <Link href="#" className="hover:text-charcoal">Villkor</Link>

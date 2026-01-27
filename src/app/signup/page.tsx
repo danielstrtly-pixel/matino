@@ -42,7 +42,7 @@ export default function SignupPage() {
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
             <span className="text-2xl">🥗</span>
-            <span className="text-xl font-bold text-green-800">Matino</span>
+            <span className="text-xl font-bold text-green-800">SmartaMenyn</span>
           </Link>
           <CardTitle>Skapa konto</CardTitle>
           <CardDescription>
