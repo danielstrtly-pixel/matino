@@ -169,12 +169,74 @@ export class LidlScraper extends BaseScraper {
           const titleEl = item.querySelector('.odsc-tile__link, [class*="name"], [class*="title"], h2, h3, h4');
           name = titleEl?.textContent?.trim() || null;
           
-          // Find price - check for "X för Y kr" pattern
-          const priceEl = item.querySelector('[class*="price"]:not([class*="original"]):not([class*="old"]), [class*="Price"]:not([class*="original"]):not([class*="old"])');
-          const priceText = priceEl?.textContent?.trim();
-          
-          // Get all text from element to check for "X för Y" pattern
+          // Get all text from element for pattern matching
           const fullText = item.textContent || '';
+          
+          // === PRICE EXTRACTION - prioritize sale prices ===
+          // Look for multiple prices and pick the LOWEST (sale price)
+          const allPrices: number[] = [];
+          let unit: string | null = null;
+          
+          // Method 1: Look for crossed-out old price vs new price
+          const oldPriceEl = item.querySelector('[class*="old-price"], [class*="original-price"], [class*="strikethrough"], s, del');
+          const newPriceEl = item.querySelector('[class*="price"]:not([class*="old"]):not([class*="original"])');
+          
+          // Method 2: Find all price patterns in text
+          // Patterns: "6.90", "6,90", "6:-", "6 kr"
+          const priceMatches = fullText.matchAll(/(\d+)[,.](\d{2})|(\d+):-|(\d+)\s*kr(?!\s*\/)/g);
+          for (const match of priceMatches) {
+            let price: number;
+            if (match[1] && match[2]) {
+              price = parseFloat(`${match[1]}.${match[2]}`);
+            } else if (match[3]) {
+              price = parseFloat(match[3]);
+            } else if (match[4]) {
+              price = parseFloat(match[4]);
+            } else {
+              continue;
+            }
+            if (price > 0 && price < 10000) {
+              allPrices.push(price);
+            }
+          }
+          
+          // === UNIT EXTRACTION ===
+          // Look for: /kg, /st, 500g, 400g, 125g, Ca 1 kg, etc.
+          const unitMatch = fullText.match(/(\/kg|\/st|\/l|\d+\s*g(?:\s*\/\s*st)?|\d+\s*ml|ca\s+\d+[,.]?\d*\s*kg)/i);
+          if (unitMatch) {
+            unit = unitMatch[1].trim();
+          }
+          
+          // === MULTI-BUY DETECTION ===
+          // Patterns: "3 för 10:-", "4 FÖR 28:-", "2 för 50 kr"
+          let quantity: number | undefined;
+          let multiBuyPrice: number | undefined;
+          const forMatch = fullText.match(/(\d+)\s*för\s*(\d+)[,.]?(\d*)(?:\s*kr|:-)?/i);
+          if (forMatch) {
+            quantity = parseInt(forMatch[1]);
+            multiBuyPrice = parseFloat(`${forMatch[2]}.${forMatch[3] || '0'}`);
+            allPrices.push(multiBuyPrice);
+          }
+          
+          // === SELECT BEST PRICE ===
+          // Prioritize: multi-buy total, or lowest price found (likely sale price)
+          let offerPrice: number | undefined;
+          if (multiBuyPrice && quantity) {
+            offerPrice = multiBuyPrice; // Total for multi-buy
+          } else if (allPrices.length > 0) {
+            // Take the LOWEST price (most likely to be the sale price)
+            offerPrice = Math.min(...allPrices);
+          }
+          
+          // Fallback: direct price element
+          if (!offerPrice) {
+            const priceEl = newPriceEl || item.querySelector('[class*="price"]');
+            const priceText = priceEl?.textContent?.trim() || '';
+            const match = priceText.match(/(\d+)[,.]?(\d*)/);
+            if (match) {
+              offerPrice = parseFloat(`${match[1]}.${match[2] || '0'}`);
+            }
+          }
           
           // Find image - use Lidl's specific selector: img.odsc-image-gallery__image
           // AVOID: img.seal__badge (quality badges)
@@ -198,17 +260,15 @@ export class LidlScraper extends BaseScraper {
             }
           }
           
-          // Keep original URL - don't modify width/height as it breaks imgproxy hash
-          
-          // Check for "X för Y kr" pattern in full text
-          let quantity: number | undefined;
-          const forMatch = fullText.match(/(\d+)\s*för\s*(\d+)\s*kr/i);
-          if (forMatch) {
-            quantity = parseInt(forMatch[1]);
-          }
-          
-          if (name && priceText) {
-            products.push({ name, priceText, imageUrl, quantity });
+          if (name && offerPrice) {
+            products.push({ 
+              name, 
+              offerPrice, 
+              imageUrl, 
+              quantity: quantity || undefined,
+              multiBuyPrice: multiBuyPrice || undefined,
+              unit: unit || undefined,
+            });
           }
         } catch (e) {
           // Skip problematic elements
@@ -226,19 +286,24 @@ export class LidlScraper extends BaseScraper {
         const name = raw.name;
         if (!name || name.length < 2 || name.length > 100) continue;
         
-        // Parse price
-        const priceMatch = raw.priceText?.match(/(\d+)[,.]?(\d*)/);
-        if (!priceMatch) continue;
-        
-        const offerPrice = parseFloat(`${priceMatch[1]}.${priceMatch[2] || '0'}`);
-        if (offerPrice < 1 || offerPrice > 10000) continue;
+        const offerPrice = raw.offerPrice;
+        if (!offerPrice || offerPrice < 1 || offerPrice > 10000) continue;
         
         // Classify category
         const category = getCategory(undefined, name, 'lidl');
         
         // Handle quantity (X för Y kr)
         const quantity = raw.quantity && raw.quantity > 1 ? raw.quantity : undefined;
-        const quantityPrice = quantity ? Math.round((offerPrice / quantity) * 100) / 100 : undefined;
+        const quantityPrice = quantity && raw.multiBuyPrice 
+          ? Math.round((raw.multiBuyPrice / quantity) * 100) / 100 
+          : undefined;
+        
+        // Build unit string
+        let unit = raw.unit || undefined;
+        if (quantity && raw.multiBuyPrice) {
+          // Format as "3 för 10:- (3.33 kr/st)"
+          unit = `${quantity} för ${raw.multiBuyPrice}:-` + (raw.unit ? ` (${raw.unit})` : '');
+        }
         
         const offer: Offer = {
           id: this.generateOfferId('lidl', store.externalId, name),
@@ -246,6 +311,7 @@ export class LidlScraper extends BaseScraper {
           offerPrice,
           quantity,
           quantityPrice,
+          unit,
           imageUrl: raw.imageUrl || undefined,
           storeId: store.id,
           chain: 'lidl',
