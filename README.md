@@ -82,6 +82,48 @@ node scripts/sync-offers.js
 - UNDVIK: `img.seal__badge` (kvalitetsmärken)
 - **MODIFIERA INTE URL:er** — imgproxy har signerade hashar
 
+## Supabase Direct Access
+
+**Project ref:** `gepkjyzqrjkuminphpxm`
+**URL:** `https://gepkjyzqrjkuminphpxm.supabase.co`
+**Service role key:** I `.env.local`
+
+### Query via curl
+```bash
+# SELECT
+curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE?select=*&limit=10" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+
+# INSERT
+curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"column": "value"}'
+
+# UPDATE (med filter)
+curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE?id=eq.123" \
+  -X PATCH \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"column": "new_value"}'
+
+# DELETE
+curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE?id=eq.123" \
+  -X DELETE \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+```
+
+### Ladda env och kör
+```bash
+cd /home/admin/clawd/projects/smartamenyn
+export $(grep SUPABASE .env.local | xargs)
+# Nu kan du använda $SUPABASE_SERVICE_ROLE_KEY
+```
+
 ## Databasschema (viktiga tabeller)
 
 - `stores` — alla butiker (1287 ICA + 725 Coop + Hemköp + Lidl)

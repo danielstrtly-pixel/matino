@@ -219,13 +219,30 @@ export async function regenerateAIMeal(
   meal: 'lunch' | 'dinner',
   preferences: UserPreferences,
   offers: Offer[],
-  existingRecipeNames: string[]
+  existingRecipeNames: string[],
+  userPreference?: string | null,
+  feedbackHistory?: { reason?: string; preference?: string }[]
 ): Promise<AIMenuItem | null> {
   const offersSummary = offers.slice(0, 15).map(o => 
     `- ${o.name} (${o.offer_price} kr)`
   ).join('\n');
 
+  // Build feedback context
+  let feedbackContext = '';
+  if (userPreference) {
+    feedbackContext += `\nANVÄNDARENS ÖNSKEMÅL: ${userPreference}\n`;
+  }
+  if (feedbackHistory && feedbackHistory.length > 0) {
+    const recentFeedback = feedbackHistory.slice(0, 5);
+    feedbackContext += '\nTIDIGARE FEEDBACK (ta hänsyn till detta):\n';
+    for (const fb of recentFeedback) {
+      if (fb.reason) feedbackContext += `- Ogillade: ${fb.reason}\n`;
+      if (fb.preference) feedbackContext += `- Föredrar: ${fb.preference}\n`;
+    }
+  }
+
   const prompt = `Skapa ETT nytt middagsrecept för ${preferences.householdSize} personer.
+${feedbackContext}
 
 Max tid: ${preferences.maxCookTime} min
 Ogillar: ${preferences.dislikes.join(', ') || 'inget'}

@@ -11,7 +11,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface AIRecipe {
   name: string;
@@ -75,6 +78,9 @@ export default function MenuPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<AIMenuItem | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [swapItem, setSwapItem] = useState<AIMenuItem | null>(null);
+  const [swapReason, setSwapReason] = useState('');
+  const [swapPreference, setSwapPreference] = useState('');
 
   // Load saved menu on mount
   useEffect(() => {
@@ -153,9 +159,20 @@ export default function MenuPage() {
     }
   };
 
-  const swapMeal = async (item: AIMenuItem) => {
-    const key = `${item.dayIndex}-${item.meal}`;
+  // Open swap dialog
+  const openSwapDialog = (item: AIMenuItem) => {
+    setSwapItem(item);
+    setSwapReason('');
+    setSwapPreference('');
+  };
+
+  // Execute swap with feedback
+  const executeSwap = async () => {
+    if (!swapItem) return;
+    
+    const key = `${swapItem.dayIndex}-${swapItem.meal}`;
     setSwapping(key);
+    setSwapItem(null);
     
     try {
       const res = await fetch('/api/ai/menu', {
@@ -164,8 +181,13 @@ export default function MenuPage() {
         body: JSON.stringify({
           action: 'swap',
           currentMenu: menu,
-          dayIndex: item.dayIndex,
-          meal: item.meal,
+          dayIndex: swapItem.dayIndex,
+          meal: swapItem.meal,
+          feedback: {
+            recipeName: swapItem.recipe.name,
+            reason: swapReason,
+            preference: swapPreference,
+          },
         }),
       });
 
@@ -181,7 +203,7 @@ export default function MenuPage() {
         return {
           ...prev,
           items: prev.items.map(m => 
-            m.dayIndex === item.dayIndex && m.meal === item.meal
+            m.dayIndex === swapItem.dayIndex && m.meal === swapItem.meal
               ? data.meal
               : m
           ),
@@ -324,7 +346,7 @@ export default function MenuPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => swapMeal(item)}
+                      onClick={() => openSwapDialog(item)}
                       disabled={isSwapping}
                     >
                       {isSwapping ? '⏳ Byter...' : '🔄 Byt rätt'}
@@ -420,6 +442,58 @@ export default function MenuPage() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Swap feedback dialog */}
+      <Dialog open={!!swapItem} onOpenChange={() => setSwapItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Byt rätt</DialogTitle>
+            <DialogDescription>
+              Hjälp oss förbättra dina menyförslag genom att berätta vad du tänker.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {swapItem && (
+            <div className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">{swapItem.recipe.name}</p>
+                <p className="text-sm text-gray-500">{swapItem.day}</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="reason">Vad gillar du inte med denna rätt? (valfritt)</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="T.ex. 'För kryddigt', 'Gillar inte fisk', 'Tar för lång tid'..."
+                  value={swapReason}
+                  onChange={(e) => setSwapReason(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="preference">Vad skulle du föredra istället? (valfritt)</Label>
+                <Textarea
+                  id="preference"
+                  placeholder="T.ex. 'Något med kyckling', 'En vegetarisk rätt', 'Något snabbt'..."
+                  value={swapPreference}
+                  onChange={(e) => setSwapPreference(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setSwapItem(null)}>
+              Avbryt
+            </Button>
+            <Button onClick={executeSwap}>
+              🔄 Byt rätt
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

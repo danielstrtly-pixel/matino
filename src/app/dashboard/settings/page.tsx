@@ -423,6 +423,65 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* What we know about you */}
+        <Card>
+          <CardHeader>
+            <CardTitle>🧠 Vad vi vet om dig</CardTitle>
+            <CardDescription>
+              Denna information används för att skapa personliga menyförslag
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg text-sm space-y-2 font-mono">
+              <p><span className="text-gray-500">Hushåll:</span> {preferences.householdSize} personer{preferences.hasChildren ? ' (med barn)' : ''}</p>
+              
+              {preferences.healthLabels.length > 0 && (
+                <p>
+                  <span className="text-gray-500">Kostrestriktioner:</span>{' '}
+                  {preferences.healthLabels.map(h => 
+                    HEALTH_OPTIONS.find(o => o.value === h)?.label || h
+                  ).join(', ')}
+                </p>
+              )}
+              
+              {preferences.dietLabels.length > 0 && (
+                <p>
+                  <span className="text-gray-500">Kostmål:</span>{' '}
+                  {preferences.dietLabels.map(d => 
+                    DIET_OPTIONS.find(o => o.value === d)?.label || d
+                  ).join(', ')}
+                </p>
+              )}
+              
+              {preferences.cuisineTypes.length > 0 && (
+                <p>
+                  <span className="text-gray-500">Matkulturer:</span>{' '}
+                  {preferences.cuisineTypes.map(c => 
+                    CUISINE_OPTIONS.find(o => o.value === c)?.label?.replace(/^.{2}\s/, '') || c
+                  ).join(', ')}
+                </p>
+              )}
+              
+              {preferences.likes.length > 0 && (
+                <p><span className="text-gray-500">Gillar:</span> {preferences.likes.join(', ')}</p>
+              )}
+              
+              {preferences.dislikes.length > 0 && (
+                <p><span className="text-gray-500">Ogillar:</span> {preferences.dislikes.join(', ')}</p>
+              )}
+              
+              <p>
+                <span className="text-gray-500">Meny:</span>{' '}
+                {preferences.mealsPerWeek} middagar/vecka, max {preferences.maxCookTime} min tillagningstid
+                {preferences.includeLunch ? ', inkl. lunch' : ''}
+              </p>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              Dina erbjudanden och feedback påverkar också förslagen men visas inte här.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Subscription placeholder */}
         <Card>
           <CardHeader>

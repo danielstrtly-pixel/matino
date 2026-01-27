@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'swap') {
-      const { currentMenu, dayIndex, meal } = body;
+      const { currentMenu, dayIndex, meal, feedback } = body;
       
       if (!currentMenu || dayIndex === undefined || !meal) {
         return NextResponse.json(
@@ -189,6 +189,31 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Save feedback if provided
+      if (feedback && (feedback.reason || feedback.preference)) {
+        await supabase.from('user_feedback').insert({
+          user_id: user.id,
+          recipe_name: feedback.recipeName || 'Unknown',
+          feedback_type: 'swap',
+          reason: feedback.reason || null,
+          preference: feedback.preference || null,
+          tags: extractFeedbackTags(feedback.reason, feedback.preference),
+        });
+      }
+
+      // Load user's previous feedback for better suggestions
+      const { data: userFeedback } = await supabase
+        .from('user_feedback')
+        .select('reason, preference, tags')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const feedbackContext = userFeedback?.map(f => ({
+        reason: f.reason,
+        preference: f.preference,
+      })).filter(f => f.reason || f.preference) || [];
+
       const existingNames = currentMenu.items?.map((i: { recipe: { name: string } }) => i.recipe.name) || [];
       
       const newMeal = await regenerateAIMeal(
@@ -196,7 +221,9 @@ export async function POST(request: NextRequest) {
         meal,
         preferences,
         formattedOffers,
-        existingNames
+        existingNames,
+        feedback?.preference || null,
+        feedbackContext
       );
 
       if (!newMeal) {
@@ -230,6 +257,32 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Extract keywords from feedback for learning
+ */
+function extractFeedbackTags(reason?: string, preference?: string): string[] {
+  const tags: string[] = [];
+  const text = `${reason || ''} ${preference || ''}`.toLowerCase();
+  
+  // Common food preferences/dislikes
+  const keywords = [
+    'kyckling', 'fisk', 'kött', 'vegetariskt', 'veganskt',
+    'kryddigt', 'milt', 'sött', 'salt',
+    'snabbt', 'enkelt', 'avancerat',
+    'pasta', 'ris', 'potatis', 'sallad',
+    'soppa', 'gryta', 'wok', 'ugn',
+    'barn', 'familj',
+  ];
+  
+  for (const keyword of keywords) {
+    if (text.includes(keyword)) {
+      tags.push(keyword);
+    }
+  }
+  
+  return tags;
 }
 
 /**
