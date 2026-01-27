@@ -25,7 +25,15 @@ interface Offer {
   category?: string;
 }
 
-const CHAINS = [
+interface Chain {
+  id: string;
+  name: string;
+  logo: string;
+  supported: boolean;
+}
+
+// Fallback chains if API fails
+const FALLBACK_CHAINS: Chain[] = [
   { id: 'ica', name: 'ICA', logo: '🔴', supported: true },
   { id: 'hemkop', name: 'Hemköp', logo: '🟠', supported: true },
   { id: 'coop', name: 'Coop', logo: '🟢', supported: true },
@@ -53,11 +61,24 @@ const formatPrice = (price: number): string => {
 
 export default function DealsPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [chains, setChains] = useState<Chain[]>(FALLBACK_CHAINS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChain, setSelectedChain] = useState<string | "all">("all");
   const [selectedCategory, setSelectedCategory] = useState<string | "all">("all");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  // Load chains from DB (single source of truth)
+  useEffect(() => {
+    fetch('/api/chains')
+      .then(res => res.json())
+      .then(data => {
+        if (data.chains) setChains(data.chains);
+      })
+      .catch(() => {
+        // Use fallback chains if API fails
+      });
+  }, []);
 
   useEffect(() => {
     loadOffers();
@@ -101,7 +122,7 @@ export default function DealsPage() {
   });
 
   const getChainConfig = (chainId: string) => {
-    return CHAINS.find(c => c.id === chainId);
+    return chains.find(c => c.id === chainId);
   };
 
   const getCategoryConfig = (categoryId: string) => {
@@ -146,7 +167,7 @@ export default function DealsPage() {
         >
           Alla butiker ({offers.length})
         </Badge>
-        {CHAINS.filter(c => c.supported).map((chain) => {
+        {chains.filter(c => c.supported).map((chain) => {
           const count = offersByChain[chain.id] || 0;
           if (count === 0) return null;
           return (
