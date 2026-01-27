@@ -3,10 +3,23 @@ const { Client } = require('pg');
 const SCRAPER_URL = 'http://localhost:3001';
 const DB_URL = 'postgresql://postgres:LodsKzaNsEuu8m@db.gepkjyzqrjkuminphpxm.supabase.co:5432/postgres';
 
-const STORES = [
-  { id: 'hemkop-4147', name: 'Hemköp Östermalmstorg', chain: 'hemkop', externalId: '4147' },
-  { id: 'ica-1004164', name: 'ICA Supermarket Esplanad, Sthlm', chain: 'ica', externalId: '1004164', offersUrl: 'https://www.ica.se/erbjudanden/ica-supermarket-esplanad-sthlm-1004164/' },
-];
+async function getStoresToSync(client) {
+  // Get all unique stores that users have selected
+  const result = await client.query(`
+    SELECT DISTINCT s.id, s.name, s.chain_id as chain, s.external_id, s.offers_url
+    FROM stores s
+    INNER JOIN user_stores us ON us.store_id = s.id
+    ORDER BY s.chain_id, s.name
+  `);
+  
+  return result.rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    chain: row.chain,
+    externalId: row.external_id,
+    offersUrl: row.offers_url
+  }));
+}
 
 async function scrapeStore(store) {
   console.log(`\n📍 Scraping ${store.name}...`);
@@ -25,7 +38,7 @@ async function scrapeStore(store) {
 }
 
 async function syncToDb(client, storeId, offers) {
-  // Delete old offers
+  // Delete old offers for this store
   await client.query('DELETE FROM offers WHERE store_id = $1', [storeId]);
   
   // Insert new offers
@@ -72,9 +85,19 @@ async function main() {
   console.log('🚀 Matino Offer Sync\n');
   console.log('Connected to Supabase');
   
+  // Get stores dynamically from user_stores
+  const stores = await getStoresToSync(client);
+  console.log(`Found ${stores.length} stores to sync from user selections`);
+  
+  if (stores.length === 0) {
+    console.log('⚠️ No stores selected by any user. Nothing to sync.');
+    await client.end();
+    return;
+  }
+  
   let totalOffers = 0;
   
-  for (const store of STORES) {
+  for (const store of stores) {
     try {
       const offers = await scrapeStore(store);
       await syncToDb(client, store.id, offers);
@@ -85,7 +108,7 @@ async function main() {
   }
   
   await client.end();
-  console.log(`\n✅ Complete! ${totalOffers} offers synced.`);
+  console.log(`\n✅ Complete! ${totalOffers} offers synced across ${stores.length} stores.`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
