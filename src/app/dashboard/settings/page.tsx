@@ -45,6 +45,13 @@ const CUISINE_OPTIONS = [
   { label: "🇺🇸 Amerikansk", value: "american" },
 ];
 
+interface UserFeedback {
+  recipe_name: string;
+  reason: string | null;
+  preference: string | null;
+  created_at: string;
+}
+
 interface Preferences {
   householdSize: number;
   hasChildren: boolean;
@@ -78,23 +85,32 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<UserFeedback[]>([]);
 
-  // Load preferences on mount
+  // Load preferences and feedback on mount
   useEffect(() => {
-    const loadPreferences = async () => {
+    const loadData = async () => {
       try {
-        const res = await fetch("/api/user/preferences");
-        if (res.ok) {
-          const data = await res.json();
+        // Load preferences
+        const prefsRes = await fetch("/api/user/preferences");
+        if (prefsRes.ok) {
+          const data = await prefsRes.json();
           setPreferences(data);
         }
+        
+        // Load feedback
+        const feedbackRes = await fetch("/api/user/feedback");
+        if (feedbackRes.ok) {
+          const data = await feedbackRes.json();
+          setFeedback(data.feedback || []);
+        }
       } catch (e) {
-        console.error("Failed to load preferences:", e);
+        console.error("Failed to load data:", e);
       } finally {
         setIsLoading(false);
       }
     };
-    loadPreferences();
+    loadData();
   }, []);
 
   // Save preferences
@@ -476,8 +492,31 @@ export default function SettingsPage() {
                 {preferences.includeLunch ? ', inkl. lunch' : ''}
               </p>
             </div>
+            
+            {feedback.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm font-medium text-gray-700 mb-2">Din feedback:</p>
+                <ul className="space-y-2">
+                  {feedback.slice(0, 5).map((fb, i) => (
+                    <li key={i} className="text-sm">
+                      <span className="text-gray-500">•</span>{' '}
+                      <span className="font-medium">{fb.recipe_name}:</span>{' '}
+                      {fb.reason && <span className="text-red-600">{fb.reason}</span>}
+                      {fb.reason && fb.preference && ' → '}
+                      {fb.preference && <span className="text-green-600">{fb.preference}</span>}
+                    </li>
+                  ))}
+                </ul>
+                {feedback.length > 5 && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    +{feedback.length - 5} fler...
+                  </p>
+                )}
+              </div>
+            )}
+            
             <p className="text-xs text-gray-400 mt-3">
-              Dina erbjudanden och feedback påverkar också förslagen men visas inte här.
+              Dina erbjudanden påverkar också förslagen men visas inte här.
             </p>
           </CardContent>
         </Card>
