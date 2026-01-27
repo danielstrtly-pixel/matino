@@ -108,27 +108,28 @@ export default async function DashboardPage() {
       )}
 
       {/* Quick actions */}
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
-        <Card className={!hasStores ? "ring-2 ring-green-500" : ""}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span>🏪</span> Välj butiker
-              {!hasStores && <Badge className="bg-green-500">Starta här</Badge>}
-            </CardTitle>
-            <CardDescription>
-              Välj vilka butiker du handlar i
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full" variant={hasStores ? "outline" : "default"}>
-              <Link href="/dashboard/stores">
-                {hasStores ? "Hantera butiker" : "Välj butiker"}
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className={`grid gap-6 mb-8 ${hasStores ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+        {/* Only show "Välj butiker" if user has no stores */}
+        {!hasStores && (
+          <Card className="ring-2 ring-green-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>🏪</span> Välj butiker
+                <Badge className="bg-green-500">Starta här</Badge>
+              </CardTitle>
+              <CardDescription>
+                Välj vilka butiker du handlar i
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link href="/dashboard/stores">Välj butiker</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className={hasStores && !hasOffers ? "opacity-75" : ""}>
+        <Card className={!hasStores ? "opacity-75" : ""}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span>🏷️</span> Veckans deals
@@ -146,19 +147,18 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="opacity-75">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span>🍽️</span> Skapa veckomeny
-              <Badge variant="outline">Kommer snart</Badge>
             </CardTitle>
             <CardDescription>
               Låt AI skapa din meny
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="w-full" disabled>
-              Generera meny
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/dashboard/menu">Generera meny</Link>
             </Button>
           </CardContent>
         </Card>
