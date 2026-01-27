@@ -245,9 +245,15 @@ export default function DealsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {filteredOffers.map((offer) => {
             const chain = getChainConfig(offer.chain);
-            const priceText = offer.quantity && offer.quantityPrice 
-              ? `${offer.quantity} för ${formatPrice(offer.quantityPrice)} kr`
+            // For multi-buy deals: show "3 för 89 kr" (package price)
+            // quantityPrice is the per-unit price for comparison
+            const isMultiBuy = offer.quantity && offer.quantity > 1;
+            const priceText = isMultiBuy
+              ? `${offer.quantity} för ${formatPrice(offer.offerPrice)} kr`
               : `${formatPrice(offer.offerPrice)} kr`;
+            const perUnitText = isMultiBuy && offer.quantityPrice
+              ? `(${formatPrice(offer.quantityPrice)} kr/st)`
+              : null;
             
             return (
               <Card key={offer.id} className="hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
@@ -294,6 +300,11 @@ export default function DealsPage() {
                     <span className="text-lg font-bold text-green-600">
                       {priceText}
                     </span>
+                    {perUnitText && (
+                      <span className="text-gray-500 text-xs ml-1">
+                        {perUnitText}
+                      </span>
+                    )}
                     {offer.originalPrice && offer.originalPrice > offer.offerPrice && (
                       <span className="text-gray-400 line-through text-sm ml-2">
                         {formatPrice(offer.originalPrice)} kr
