@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { createClient } from '@/lib/supabase/client';
 
 // Stripe Price IDs
 const PRICE_IDS = {
@@ -17,6 +18,30 @@ interface PricingSectionProps {
 
 export function PricingSection({ isLoggedIn }: PricingSectionProps) {
   const [loading, setLoading] = useState<'monthly' | 'yearly' | null>(null);
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
+
+  useEffect(() => {
+    async function checkSubscription() {
+      if (!isLoggedIn) {
+        setCheckingSubscription(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data } = await supabase.rpc('has_active_subscription', {
+          p_user_id: user.id,
+        });
+        setHasSubscription(!!data);
+      }
+      setCheckingSubscription(false);
+    }
+
+    checkSubscription();
+  }, [isLoggedIn]);
 
   const handleCheckout = async (plan: 'monthly' | 'yearly') => {
     setLoading(plan);
@@ -84,13 +109,17 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
                   <Button asChild variant="outline" size="lg" className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark">
                     <Link href="/signup">Prova gratis i 7 dagar</Link>
                   </Button>
+                ) : hasSubscription ? (
+                  <Button asChild variant="outline" size="lg" className="w-full rounded-full py-5 border-charcoal/20">
+                    <Link href="/dashboard/settings">Du har redan en prenumeration</Link>
+                  </Button>
                 ) : (
                   <Button 
                     variant="outline" 
                     size="lg" 
                     className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark"
                     onClick={() => handleCheckout('monthly')}
-                    disabled={loading === 'monthly'}
+                    disabled={loading === 'monthly' || checkingSubscription}
                   >
                     {loading === 'monthly' ? 'Laddar...' : 'Välj månadsabonnemang'}
                   </Button>
@@ -129,12 +158,16 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
                   <Button asChild size="lg" className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg">
                     <Link href="/signup">Prova gratis i 7 dagar</Link>
                   </Button>
+                ) : hasSubscription ? (
+                  <Button asChild size="lg" className="w-full bg-orange/70 text-white rounded-full py-5 text-lg">
+                    <Link href="/dashboard/settings">Du har redan en prenumeration</Link>
+                  </Button>
                 ) : (
                   <Button 
                     size="lg" 
                     className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg"
                     onClick={() => handleCheckout('yearly')}
-                    disabled={loading === 'yearly'}
+                    disabled={loading === 'yearly' || checkingSubscription}
                   >
                     {loading === 'yearly' ? 'Laddar...' : 'Välj årsabonnemang'}
                   </Button>
