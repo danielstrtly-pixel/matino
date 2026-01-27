@@ -325,11 +325,20 @@ export default function MenuPage() {
                   {item.matchedOffers.length > 0 && (
                     <div className="mb-3">
                       <div className="flex flex-wrap gap-1">
-                        {item.matchedOffers.map((offer, i) => (
-                          <Badge key={i} className="bg-green-100 text-green-800">
-                            🏷️ {offer.offerName} ({offer.store})
-                          </Badge>
-                        ))}
+                        {item.matchedOffers.map((offer, i) => {
+                          // Shorten store name for mobile
+                          const shortStore = offer.store
+                            .replace('Supermarket ', '')
+                            .replace('ICA ', 'ICA ')
+                            .replace(', Sthlm', '')
+                            .replace('Östermalmstorg', 'Östermalm');
+                          return (
+                            <Badge key={i} className="bg-green-100 text-green-800 text-xs">
+                              <span className="hidden md:inline">🏷️ {offer.offerName} ({offer.store})</span>
+                              <span className="md:hidden">🏷️ {offer.offerName} ({shortStore})</span>
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
