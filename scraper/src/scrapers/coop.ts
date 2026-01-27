@@ -129,9 +129,9 @@ export class CoopScraper extends BaseScraper {
       const images = document.querySelectorAll('img[alt]');
       const imgAlts = Array.from(images).slice(0, 10).map(i => i.getAttribute('alt')).filter(a => a && a.length > 3);
       
-      // Look for price-like text
+      // Look for price-like text - Coop uses "X för Y kr" and "Y kr/st" formats
       const allText = document.body?.innerText || '';
-      const priceMatches = allText.match(/\d+[,.]\d+\s*(kr|:-)/gi)?.slice(0, 5) || [];
+      const priceMatches = allText.match(/(\d+\s*för\s*\d+\s*kr|\d+\s*kr\/st|\d+[,.]\d+\s*kr)/gi)?.slice(0, 10) || [];
       
       return {
         url: window.location.href,
@@ -159,16 +159,41 @@ export class CoopScraper extends BaseScraper {
           const heading = item.querySelector('[class*="heading"], h2, h3, h4');
           const name = heading?.textContent?.trim();
           
-          // Get all text to find price
+          // Get all text to find price - Coop uses various formats
           const allText = item.textContent || '';
-          const priceMatch = allText.match(/(\d+)[,.](\d+)\s*(kr|:-)/i);
-          const priceText = priceMatch ? priceMatch[0] : null;
+          
+          // Try different price patterns
+          let priceText: string | null = null;
+          let quantity: number | null = null;
+          
+          // "X för Y kr" format (e.g., "4 för 50 kr")
+          const multiMatch = allText.match(/(\d+)\s*för\s*(\d+)\s*kr/i);
+          if (multiMatch) {
+            quantity = parseInt(multiMatch[1]);
+            priceText = multiMatch[2] + ' kr';
+          }
+          
+          // "Y kr/st" format (e.g., "25 kr/st")
+          if (!priceText) {
+            const perUnitMatch = allText.match(/(\d+)\s*kr\/st/i);
+            if (perUnitMatch) {
+              priceText = perUnitMatch[1] + ' kr';
+            }
+          }
+          
+          // Regular "X,XX kr" format
+          if (!priceText) {
+            const regularMatch = allText.match(/(\d+)[,.](\d+)\s*kr/i);
+            if (regularMatch) {
+              priceText = regularMatch[0];
+            }
+          }
           
           const img = item.querySelector('img');
           const imageUrl = img?.getAttribute('src') || img?.getAttribute('data-src');
           
           if (name && priceText) {
-            products.push({ name, priceText, imageUrl });
+            products.push({ name, priceText, imageUrl, quantity });
           }
         } catch (e) {}
       });
@@ -184,14 +209,36 @@ export class CoopScraper extends BaseScraper {
           let parent = img.parentElement;
           for (let i = 0; i < 5 && parent; i++) {
             const text = parent.textContent || '';
-            const priceMatch = text.match(/(\d+)[,.](\d+)\s*(kr|:-)/i);
-            if (priceMatch) {
+            
+            let priceText: string | null = null;
+            let quantity: number | null = null;
+            
+            // "X för Y kr" format
+            const multiMatch = text.match(/(\d+)\s*för\s*(\d+)\s*kr/i);
+            if (multiMatch) {
+              quantity = parseInt(multiMatch[1]);
+              priceText = multiMatch[2] + ' kr';
+            }
+            
+            // "Y kr/st" format
+            if (!priceText) {
+              const perUnitMatch = text.match(/(\d+)\s*kr\/st/i);
+              if (perUnitMatch) {
+                priceText = perUnitMatch[1] + ' kr';
+              }
+            }
+            
+            // Regular format
+            if (!priceText) {
+              const regularMatch = text.match(/(\d+)[,.](\d+)\s*kr/i);
+              if (regularMatch) {
+                priceText = regularMatch[0];
+              }
+            }
+            
+            if (priceText) {
               const imageUrl = img.getAttribute('src') || img.getAttribute('data-src');
-              products.push({ 
-                name: alt, 
-                priceText: priceMatch[0], 
-                imageUrl 
-              });
+              products.push({ name: alt, priceText, imageUrl, quantity });
               break;
             }
             parent = parent.parentElement;
