@@ -106,15 +106,48 @@ node scripts/sync-offers.js
 3. **tsconfig exclude** — lägg till scraper-mappen så Vercel inte bygger den
 4. **Vercel kan inte nå localhost** — använd nattlig cron istället för real-time
 
+## Edamam Recipe API
+
+**Dokumentation:** https://developer.edamam.com/edamam-docs-recipe-api
+
+### Aktivera
+
+1. Skapa konto på https://developer.edamam.com/
+2. Skapa en Recipe Search API-applikation
+3. Lägg till credentials i `.env.local`:
+   ```
+   EDAMAM_APP_ID=din_app_id
+   EDAMAM_APP_KEY=din_app_key
+   ```
+
+### Features
+- Söker recept baserat på användarens erbjudanden
+- Filtrerar på allergier/dieter (gluten-free, vegan, etc.)
+- Filtrerar på kostmål (high-protein, low-carb, etc.)
+- Filtrerar på matkulturer (nordic, italian, asian, etc.)
+- Översätter receptnamn till svenska via OpenRouter
+- Matchar recept med aktuella erbjudanden
+
+### Inställningar (Settings-sidan)
+- Hushållsstorlek + barn
+- Kostrestriktioner (11 val)
+- Kostmål (5 val)
+- Matkulturer (10 val)
+- Favoriter & ogillade ingredienser
+- Antal middagar/vecka (3-7)
+- Max tillagningstid (15-90 min)
+- Inkludera lunch
+
 ## TODO
 
 ### Hög prio
-- [ ] **Meny-generering (AI)** — core feature
+- [x] **Meny-generering (Edamam + OpenRouter)** — implementerat!
 - [ ] Inköpslista med butiksgruppering
 
 ### Medium prio
 - [ ] Coop scraper fix
-- [ ] Swap måltid med feedback
+- [ ] Spara genererade menyer i databas
+- [ ] Swap-feedback loop (lär sig preferenser)
 
 ### Låg prio
 - [ ] Förbättra kategori-klassificering

@@ -5,24 +5,76 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+
+// Edamam-compatible options
+const HEALTH_OPTIONS = [
+  { label: "Vegetarisk", value: "vegetarian" },
+  { label: "Vegansk", value: "vegan" },
+  { label: "Glutenfri", value: "gluten-free" },
+  { label: "Laktosfri", value: "dairy-free" },
+  { label: "Äggfri", value: "egg-free" },
+  { label: "Nötfri", value: "tree-nut-free" },
+  { label: "Jordnötsfri", value: "peanut-free" },
+  { label: "Fiskfri", value: "fish-free" },
+  { label: "Skaldjursfri", value: "shellfish-free" },
+  { label: "Sojafri", value: "soy-free" },
+  { label: "Fläskfri", value: "pork-free" },
+];
+
+const DIET_OPTIONS = [
+  { label: "Balanserad", value: "balanced", description: "Jämn fördelning protein/fett/kolhydrater" },
+  { label: "Proteinrik", value: "high-protein", description: "Mer än 50% kalorier från protein" },
+  { label: "Lågkolhydrat", value: "low-carb", description: "Mindre än 20% kalorier från kolhydrater" },
+  { label: "Fiberrik", value: "high-fiber", description: "Mer än 5g fiber per portion" },
+  { label: "Keto", value: "keto-friendly", description: "Max 7g netto-kolhydrater per portion" },
+];
+
+const CUISINE_OPTIONS = [
+  { label: "🇸🇪 Nordisk/Svensk", value: "nordic" },
+  { label: "🇮🇹 Italiensk", value: "italian" },
+  { label: "🌏 Asiatisk", value: "asian" },
+  { label: "🇲🇽 Mexikansk", value: "mexican" },
+  { label: "🇮🇳 Indisk", value: "indian" },
+  { label: "🇬🇷 Grekisk", value: "greek" },
+  { label: "🇫🇷 Fransk", value: "french" },
+  { label: "🇯🇵 Japansk", value: "japanese" },
+  { label: "🇨🇳 Kinesisk", value: "chinese" },
+  { label: "🇺🇸 Amerikansk", value: "american" },
+];
 
 interface Preferences {
   householdSize: number;
+  hasChildren: boolean;
   likes: string[];
   dislikes: string[];
   allergies: string[];
+  healthLabels: string[];
+  dietLabels: string[];
+  cuisineTypes: string[];
+  mealsPerWeek: number;
+  maxCookTime: number;
+  includeLunch: boolean;
 }
 
 export default function SettingsPage() {
   const [preferences, setPreferences] = useState<Preferences>({
     householdSize: 2,
+    hasChildren: false,
     likes: [],
     dislikes: [],
     allergies: [],
+    healthLabels: [],
+    dietLabels: [],
+    cuisineTypes: [],
+    mealsPerWeek: 5,
+    maxCookTime: 45,
+    includeLunch: false,
   });
   const [newLike, setNewLike] = useState("");
   const [newDislike, setNewDislike] = useState("");
-  const [newAllergy, setNewAllergy] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -71,21 +123,31 @@ export default function SettingsPage() {
     }
   };
 
-  const addItem = (list: keyof Pick<Preferences, 'likes' | 'dislikes' | 'allergies'>, value: string, setter: (v: string) => void) => {
+  const toggleArrayItem = (field: keyof Preferences, value: string) => {
+    setPreferences((prev) => {
+      const arr = prev[field] as string[];
+      if (arr.includes(value)) {
+        return { ...prev, [field]: arr.filter((v) => v !== value) };
+      }
+      return { ...prev, [field]: [...arr, value] };
+    });
+  };
+
+  const addItem = (list: 'likes' | 'dislikes', value: string, setter: (v: string) => void) => {
     if (!value.trim()) return;
-    if (preferences[list].includes(value.trim())) return;
+    if ((preferences[list] as string[]).includes(value.trim())) return;
     
     setPreferences((prev) => ({
       ...prev,
-      [list]: [...prev[list], value.trim()],
+      [list]: [...(prev[list] as string[]), value.trim()],
     }));
     setter("");
   };
 
-  const removeItem = (list: keyof Pick<Preferences, 'likes' | 'dislikes' | 'allergies'>, item: string) => {
+  const removeItem = (list: 'likes' | 'dislikes', item: string) => {
     setPreferences((prev) => ({
       ...prev,
-      [list]: prev[list].filter((i) => i !== item),
+      [list]: (prev[list] as string[]).filter((i) => i !== item),
     }));
   };
 
@@ -106,7 +168,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-bold">Inställningar</h1>
           <p className="text-gray-600 mt-2">
-            Anpassa SmartaMenyn efter dina preferenser.
+            Anpassa menyn efter ditt hushåll och era preferenser.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -121,11 +183,12 @@ export default function SettingsPage() {
         {/* Household */}
         <Card>
           <CardHeader>
-            <CardTitle>👨‍👩‍👧‍👦 Hushåll</CardTitle>
-            <CardDescription>Hur många är ni i hushållet?</CardDescription>
+            <CardTitle>👨‍👩‍👧‍👦 Hushållet</CardTitle>
+            <CardDescription>Information om vilka som ska äta</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
+              <Label>Antal personer:</Label>
               <Input
                 type="number"
                 min={1}
@@ -139,7 +202,89 @@ export default function SettingsPage() {
                 }
                 className="w-20"
               />
-              <span className="text-gray-500">personer</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="hasChildren"
+                checked={preferences.hasChildren}
+                onCheckedChange={(checked) =>
+                  setPreferences((prev) => ({ ...prev, hasChildren: !!checked }))
+                }
+              />
+              <Label htmlFor="hasChildren">Finns barn i hushållet (påverkar receptval)</Label>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Allergies & Restrictions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>⚠️ Kostrestriktioner</CardTitle>
+            <CardDescription>Allergier och kost som ska undvikas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {HEALTH_OPTIONS.map((option) => (
+                <div key={option.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={option.value}
+                    checked={preferences.healthLabels.includes(option.value)}
+                    onCheckedChange={() => toggleArrayItem("healthLabels", option.value)}
+                  />
+                  <Label htmlFor={option.value} className="cursor-pointer">
+                    {option.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Diet Goals */}
+        <Card>
+          <CardHeader>
+            <CardTitle>🎯 Kostmål</CardTitle>
+            <CardDescription>Vilken typ av kost föredrar ni? (valfritt)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {DIET_OPTIONS.map((option) => (
+                <div key={option.value} className="flex items-start space-x-2">
+                  <Checkbox
+                    id={option.value}
+                    checked={preferences.dietLabels.includes(option.value)}
+                    onCheckedChange={() => toggleArrayItem("dietLabels", option.value)}
+                  />
+                  <div>
+                    <Label htmlFor={option.value} className="cursor-pointer font-medium">
+                      {option.label}
+                    </Label>
+                    <p className="text-xs text-gray-500">{option.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cuisine Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle>🌍 Matkulturer</CardTitle>
+            <CardDescription>Vilka kök gillar ni? (lämna tomt för alla)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {CUISINE_OPTIONS.map((option) => (
+                <Badge
+                  key={option.value}
+                  variant={preferences.cuisineTypes.includes(option.value) ? "default" : "outline"}
+                  className="cursor-pointer hover:bg-primary/80 transition-colors"
+                  onClick={() => toggleArrayItem("cuisineTypes", option.value)}
+                >
+                  {option.label}
+                </Badge>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -147,7 +292,7 @@ export default function SettingsPage() {
         {/* Likes */}
         <Card>
           <CardHeader>
-            <CardTitle>😋 Vad gillar ni?</CardTitle>
+            <CardTitle>😋 Favoriter</CardTitle>
             <CardDescription>
               Ingredienser och rätter ni gärna vill ha mer av
             </CardDescription>
@@ -183,9 +328,9 @@ export default function SettingsPage() {
         {/* Dislikes */}
         <Card>
           <CardHeader>
-            <CardTitle>🙅 Vad gillar ni inte?</CardTitle>
+            <CardTitle>🙅 Ogillar</CardTitle>
             <CardDescription>
-              Ingredienser ni vill undvika
+              Ingredienser ni inte vill ha i recepten
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -206,7 +351,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex gap-2">
               <Input
-                placeholder="T.ex. 'Lever', 'Svamp'..."
+                placeholder="T.ex. 'Koriander', 'Lever'..."
                 value={newDislike}
                 onChange={(e) => setNewDislike(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addItem("dislikes", newDislike, setNewDislike)}
@@ -218,40 +363,62 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Allergies */}
+        {/* Menu Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>⚠️ Allergier</CardTitle>
-            <CardDescription>
-              Allergier och intoleranser
-            </CardDescription>
+            <CardTitle>📅 Menyinställningar</CardTitle>
+            <CardDescription>Hur ska din veckomeny se ut?</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
-              {preferences.allergies.length === 0 && (
-                <span className="text-gray-400 text-sm">Inga allergier angivna</span>
-              )}
-              {preferences.allergies.map((item) => (
-                <Badge
-                  key={item}
-                  variant="destructive"
-                  className="gap-1 cursor-pointer hover:opacity-80"
-                  onClick={() => removeItem("allergies", item)}
-                >
-                  {item} ✕
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="T.ex. 'Gluten', 'Nötter', 'Laktos'..."
-                value={newAllergy}
-                onChange={(e) => setNewAllergy(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addItem("allergies", newAllergy, setNewAllergy)}
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label>Antal middagar per vecka:</Label>
+                <span className="font-medium">{preferences.mealsPerWeek}</span>
+              </div>
+              <Slider
+                value={[preferences.mealsPerWeek]}
+                onValueChange={([value]) =>
+                  setPreferences((prev) => ({ ...prev, mealsPerWeek: value }))
+                }
+                min={3}
+                max={7}
+                step={1}
               />
-              <Button variant="destructive" onClick={() => addItem("allergies", newAllergy, setNewAllergy)}>
-                Lägg till
-              </Button>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>3</span>
+                <span>7</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label>Max tillagningstid:</Label>
+                <span className="font-medium">{preferences.maxCookTime} min</span>
+              </div>
+              <Slider
+                value={[preferences.maxCookTime]}
+                onValueChange={([value]) =>
+                  setPreferences((prev) => ({ ...prev, maxCookTime: value }))
+                }
+                min={15}
+                max={90}
+                step={5}
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>15 min</span>
+                <span>90 min</span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="includeLunch"
+                checked={preferences.includeLunch}
+                onCheckedChange={(checked) =>
+                  setPreferences((prev) => ({ ...prev, includeLunch: !!checked }))
+                }
+              />
+              <Label htmlFor="includeLunch">Inkludera lunchförslag</Label>
             </div>
           </CardContent>
         </Card>

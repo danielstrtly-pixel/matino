@@ -1,64 +1,153 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const PLACEHOLDER_MENU = [
-  {
-    day: "Måndag",
-    meal: "Kycklingwok med grönsaker",
-    usesDeals: true,
-    dealItems: ["Kycklingfilé (ICA)"],
-    prepTime: "25 min",
-  },
-  {
-    day: "Tisdag",
-    meal: "Köttfärssås med pasta",
-    usesDeals: true,
-    dealItems: ["Köttfärs (Hemköp)", "Pasta (Lidl)"],
-    prepTime: "30 min",
-  },
-  {
-    day: "Onsdag",
-    meal: "Ugnsbakad lax med potatis",
-    usesDeals: true,
-    dealItems: ["Laxfilé (Coop)"],
-    prepTime: "35 min",
-  },
-  {
-    day: "Torsdag",
-    meal: "Falukorvsstroganoff",
-    usesDeals: true,
-    dealItems: ["Falukorv (ICA)"],
-    prepTime: "20 min",
-  },
-  {
-    day: "Fredag",
-    meal: "Tacos",
-    usesDeals: false,
-    dealItems: [],
-    prepTime: "25 min",
-  },
-];
+interface MenuItem {
+  day: string;
+  dayIndex: number;
+  meal: 'lunch' | 'dinner';
+  recipe: {
+    id: string;
+    name: string;
+    nameSwedish?: string;
+    image: string;
+    source: string;
+    sourceUrl: string;
+    servings: number;
+    cookTime: number | null;
+    calories: number;
+    ingredients: string[];
+    cuisineType: string | null;
+    dietLabels: string[];
+    healthLabels: string[];
+  };
+  matchedOffers: {
+    offerId: string;
+    offerName: string;
+    price: number;
+    store: string;
+  }[];
+  estimatedSavings?: number;
+}
+
+interface GeneratedMenu {
+  items: MenuItem[];
+  totalEstimatedSavings: number;
+  generatedAt: string;
+}
 
 export default function MenuPage() {
-  const [menu, setMenu] = useState(PLACEHOLDER_MENU);
+  const [menu, setMenu] = useState<GeneratedMenu | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [swapping, setSwapping] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<MenuItem | null>(null);
 
-  const generateMenu = () => {
+  // Load menu from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('smartamenyn_menu');
+    if (saved) {
+      try {
+        setMenu(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load saved menu:', e);
+      }
+    }
+  }, []);
+
+  // Save menu to localStorage when it changes
+  useEffect(() => {
+    if (menu) {
+      localStorage.setItem('smartamenyn_menu', JSON.stringify(menu));
+    }
+  }, [menu]);
+
+  const generateMenu = async () => {
     setGenerating(true);
-    // TODO: Call AI to generate menu
-    setTimeout(() => {
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/ai/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate' }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to generate menu');
+      }
+
+      const data = await res.json();
+      setMenu(data.menu);
+    } catch (e) {
+      console.error('Menu generation error:', e);
+      setError(e instanceof Error ? e.message : 'Något gick fel');
+    } finally {
       setGenerating(false);
-    }, 2000);
+    }
   };
 
-  const regenerateMeal = (day: string) => {
-    // TODO: Call AI to regenerate specific meal
-    alert(`Genererar ny rätt för ${day}...`);
+  const swapMeal = async (item: MenuItem) => {
+    const key = `${item.dayIndex}-${item.meal}`;
+    setSwapping(key);
+    
+    try {
+      const res = await fetch('/api/ai/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'swap',
+          currentMenu: menu,
+          dayIndex: item.dayIndex,
+          meal: item.meal,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to swap meal');
+      }
+
+      const data = await res.json();
+      
+      // Replace the meal in the menu
+      setMenu(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map(m => 
+            m.dayIndex === item.dayIndex && m.meal === item.meal
+              ? data.meal
+              : m
+          ),
+        };
+      });
+    } catch (e) {
+      console.error('Swap error:', e);
+      setError(e instanceof Error ? e.message : 'Kunde inte byta rätt');
+    } finally {
+      setSwapping(null);
+    }
   };
+
+  // Group menu items by day
+  const menuByDay = menu?.items.reduce((acc, item) => {
+    if (!acc[item.day]) acc[item.day] = [];
+    acc[item.day].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>) || {};
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -66,83 +155,268 @@ export default function MenuPage() {
         <div>
           <h1 className="text-3xl font-bold">Din veckomeny</h1>
           <p className="text-gray-600 mt-2">
-            AI-genererad meny baserad på veckans erbjudanden och dina preferenser.
+            Recept baserade på veckans erbjudanden och dina preferenser.
           </p>
+          {menu && (
+            <p className="text-sm text-gray-500 mt-1">
+              Genererad: {new Date(menu.generatedAt).toLocaleString('sv-SE')}
+            </p>
+          )}
         </div>
-        <Button onClick={generateMenu} disabled={generating}>
-          {generating ? "Genererar..." : "🤖 Generera ny meny"}
+        <Button 
+          onClick={generateMenu} 
+          disabled={generating}
+          size="lg"
+        >
+          {generating ? (
+            <>
+              <span className="animate-spin mr-2">⏳</span>
+              Genererar...
+            </>
+          ) : (
+            <>🤖 {menu ? 'Generera ny meny' : 'Skapa veckomeny'}</>
+          )}
         </Button>
       </div>
 
-      {/* Menu options */}
-      <div className="flex gap-4 mb-6 flex-wrap">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Antal middagar:</label>
-          <select className="border rounded px-2 py-1">
-            <option>5</option>
-            <option>6</option>
-            <option>7</option>
-          </select>
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          ❌ {error}
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Inkludera lunch:</label>
-          <input type="checkbox" className="rounded" />
+      )}
+
+      {/* Savings summary */}
+      {menu && menu.totalEstimatedSavings > 0 && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">💰</span>
+            <div>
+              <p className="font-semibold text-green-800">
+                Uppskattad besparing: ~{menu.totalEstimatedSavings} kr
+              </p>
+              <p className="text-sm text-green-600">
+                Genom att använda veckans erbjudanden i recepten
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Basera på erbjudanden:</label>
-          <input type="checkbox" className="rounded" defaultChecked />
+      )}
+
+      {/* Loading state */}
+      {generating && (
+        <div className="space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-6 w-48 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4">
+                  <Skeleton className="h-24 w-24 rounded" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </div>
+      )}
+
+      {/* Empty state */}
+      {!generating && !menu && (
+        <Card className="text-center py-12">
+          <CardContent>
+            <div className="text-6xl mb-4">🍽️</div>
+            <h2 className="text-xl font-semibold mb-2">Ingen meny genererad ännu</h2>
+            <p className="text-gray-500 mb-6">
+              Klicka på knappen ovan för att skapa en veckomeny baserad på dina 
+              preferenser och veckans erbjudanden.
+            </p>
+            <Button onClick={generateMenu} disabled={generating}>
+              🤖 Skapa veckomeny
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Menu cards */}
-      <div className="space-y-4">
-        {menu.map((item) => (
-          <Card key={item.day} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-green-600">{item.day}</p>
-                  <CardTitle className="text-xl mt-1">{item.meal}</CardTitle>
-                </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline">{item.prepTime}</Badge>
-                  {item.usesDeals && (
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                      💰 Sparar pengar
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {item.dealItems.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {item.dealItems.map((deal, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      🏷️ {deal}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => regenerateMeal(item.day)}>
-                  🔄 Byt rätt
-                </Button>
-                <Button variant="ghost" size="sm">
-                  📖 Visa recept
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {!generating && menu && (
+        <div className="space-y-4">
+          {Object.entries(menuByDay).map(([day, items]) => (
+            <div key={day}>
+              <h2 className="text-lg font-semibold text-green-700 mb-2">{day}</h2>
+              {items.map((item) => {
+                const isSwapping = swapping === `${item.dayIndex}-${item.meal}`;
+                return (
+                  <Card 
+                    key={`${item.dayIndex}-${item.meal}`} 
+                    className="mb-3 hover:shadow-md transition-shadow"
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          {item.meal === 'lunch' && (
+                            <Badge variant="outline" className="mb-1">Lunch</Badge>
+                          )}
+                          <CardTitle className="text-xl">
+                            {item.recipe.nameSwedish || item.recipe.name}
+                          </CardTitle>
+                          {item.recipe.nameSwedish && item.recipe.nameSwedish !== item.recipe.name && (
+                            <p className="text-sm text-gray-500 italic">{item.recipe.name}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2 flex-wrap justify-end">
+                          {item.recipe.cookTime && (
+                            <Badge variant="outline">⏱️ {item.recipe.cookTime} min</Badge>
+                          )}
+                          <Badge variant="outline">🍽️ {item.recipe.servings} port</Badge>
+                          <Badge variant="outline">🔥 {item.recipe.calories} kcal</Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-4">
+                        {/* Recipe image */}
+                        {item.recipe.image && (
+                          <div className="flex-shrink-0">
+                            <img
+                              src={item.recipe.image}
+                              alt={item.recipe.name}
+                              className="w-32 h-32 object-cover rounded-lg"
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="flex-1">
+                          {/* Matched offers */}
+                          {item.matchedOffers.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-sm text-gray-600 mb-1">🏷️ Matchar erbjudanden:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {item.matchedOffers.map((offer, i) => (
+                                  <Badge key={i} className="bg-green-100 text-green-800 hover:bg-green-100">
+                                    {offer.offerName} ({offer.store})
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Cuisine & diet info */}
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {item.recipe.cuisineType && (
+                              <Badge variant="secondary">{item.recipe.cuisineType}</Badge>
+                            )}
+                            {item.recipe.dietLabels.slice(0, 2).map((label, i) => (
+                              <Badge key={i} variant="secondary">{label}</Badge>
+                            ))}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => swapMeal(item)}
+                              disabled={isSwapping}
+                            >
+                              {isSwapping ? '⏳ Byter...' : '🔄 Byt rätt'}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setSelectedRecipe(item)}
+                            >
+                              📖 Visa recept
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              asChild
+                            >
+                              <a href={item.recipe.sourceUrl} target="_blank" rel="noopener noreferrer">
+                                🔗 Källa
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Generate shopping list */}
-      <div className="mt-8 flex justify-center">
-        <Button size="lg" className="gap-2">
-          📝 Skapa inköpslista från meny
-        </Button>
-      </div>
+      {menu && menu.items.length > 0 && (
+        <div className="mt-8 flex justify-center">
+          <Button size="lg" className="gap-2" disabled>
+            📝 Skapa inköpslista (kommer snart)
+          </Button>
+        </div>
+      )}
+
+      {/* Recipe detail dialog */}
+      <Dialog open={!!selectedRecipe} onOpenChange={() => setSelectedRecipe(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          {selectedRecipe && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedRecipe.recipe.nameSwedish || selectedRecipe.recipe.name}
+                </DialogTitle>
+                <DialogDescription>
+                  Från: {selectedRecipe.recipe.source}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                {selectedRecipe.recipe.image && (
+                  <img
+                    src={selectedRecipe.recipe.image}
+                    alt={selectedRecipe.recipe.name}
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                )}
+                
+                <div className="flex gap-2 flex-wrap">
+                  {selectedRecipe.recipe.cookTime && (
+                    <Badge>⏱️ {selectedRecipe.recipe.cookTime} min</Badge>
+                  )}
+                  <Badge>🍽️ {selectedRecipe.recipe.servings} portioner</Badge>
+                  <Badge>🔥 {selectedRecipe.recipe.calories} kcal/portion</Badge>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Ingredienser</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {selectedRecipe.recipe.ingredients.map((ing, i) => (
+                      <li key={i} className="text-sm">{ing}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-gray-500 mb-2">
+                    Fullständigt recept med instruktioner finns på källsidan:
+                  </p>
+                  <Button asChild>
+                    <a href={selectedRecipe.recipe.sourceUrl} target="_blank" rel="noopener noreferrer">
+                      🔗 Öppna recept på {selectedRecipe.recipe.source}
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

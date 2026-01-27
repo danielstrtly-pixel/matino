@@ -26,9 +26,16 @@ export async function GET() {
     // Return default values if no preferences exist
     return NextResponse.json({
       householdSize: prefs?.household_size || 2,
+      hasChildren: prefs?.has_children || false,
       likes: prefs?.likes || [],
       dislikes: prefs?.dislikes || [],
       allergies: prefs?.allergies || [],
+      healthLabels: prefs?.health_labels || [],
+      dietLabels: prefs?.diet_labels || [],
+      cuisineTypes: prefs?.cuisine_types || [],
+      mealsPerWeek: prefs?.meals_per_week || 5,
+      maxCookTime: prefs?.max_cook_time || 45,
+      includeLunch: prefs?.include_lunch || false,
     });
   } catch (error) {
     console.error("Error in GET /api/user/preferences:", error);
@@ -46,7 +53,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { householdSize, likes, dislikes, allergies } = await request.json();
+    const { 
+      householdSize, 
+      hasChildren,
+      likes, 
+      dislikes, 
+      allergies,
+      healthLabels,
+      dietLabels,
+      cuisineTypes,
+      mealsPerWeek,
+      maxCookTime,
+      includeLunch,
+    } = await request.json();
 
     // Upsert preferences
     const { error } = await supabase
@@ -54,9 +73,16 @@ export async function POST(request: Request) {
       .upsert({
         user_id: user.id,
         household_size: householdSize || 2,
+        has_children: hasChildren || false,
         likes: likes || [],
         dislikes: dislikes || [],
         allergies: allergies || [],
+        health_labels: healthLabels || [],
+        diet_labels: dietLabels || [],
+        cuisine_types: cuisineTypes || [],
+        meals_per_week: mealsPerWeek || 5,
+        max_cook_time: maxCookTime || 45,
+        include_lunch: includeLunch || false,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "user_id",
