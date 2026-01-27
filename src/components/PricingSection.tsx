@@ -61,12 +61,12 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
         
         <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-3xl mx-auto">
           {/* Månadsabonnemang */}
-          <Card className="bg-cream-light border-0 rounded-3xl p-6 md:p-8">
-            <CardContent className="p-0">
+          <Card className="bg-cream-light border-0 rounded-3xl p-6 md:p-8 flex flex-col">
+            <CardContent className="p-0 flex flex-col flex-1">
               <div className="text-charcoal/60 font-medium mb-2">Månadsvis</div>
               <div className="text-4xl md:text-5xl font-bold text-charcoal mb-1">{monthlyAmount} kr</div>
               <div className="text-charcoal/60 mb-6">per månad</div>
-              <ul className="text-left space-y-3 mb-8 text-sm">
+              <ul className="text-left space-y-3 mb-8 text-sm flex-1">
                 {[
                   "Veckomenyer med recept",
                   "Erbjudanden från 4 butikskedjor",
@@ -79,27 +79,29 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
                   </li>
                 ))}
               </ul>
-              {!isLoggedIn ? (
-                <Button asChild variant="outline" size="lg" className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark">
-                  <Link href="/signup">Prova gratis i 7 dagar</Link>
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark"
-                  onClick={() => handleCheckout('monthly')}
-                  disabled={loading === 'monthly'}
-                >
-                  {loading === 'monthly' ? 'Laddar...' : 'Välj månadsabo'}
-                </Button>
-              )}
+              <div className="mt-auto">
+                {!isLoggedIn ? (
+                  <Button asChild variant="outline" size="lg" className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark">
+                    <Link href="/signup">Prova gratis i 7 dagar</Link>
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="w-full rounded-full py-5 border-charcoal/20 hover:bg-cream-dark"
+                    onClick={() => handleCheckout('monthly')}
+                    disabled={loading === 'monthly'}
+                  >
+                    {loading === 'monthly' ? 'Laddar...' : 'Välj månadsabonnemang'}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
           {/* Årsabonnemang - Populärast */}
-          <Card className="bg-fresh text-white border-0 rounded-3xl p-6 md:p-8 relative overflow-hidden">
-            <CardContent className="p-0">
+          <Card className="bg-fresh text-white border-0 rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col">
+            <CardContent className="p-0 flex flex-col flex-1">
               <div className="absolute top-4 right-4 bg-orange text-white text-xs font-bold px-3 py-1 rounded-full">
                 SPARA {savingsPercent}%
               </div>
@@ -109,7 +111,7 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
               <div className="text-sm text-white/60 mb-6">
                 <span className="line-through">{yearlyMonthlyEquivalent} kr</span> · Du sparar {savings} kr
               </div>
-              <ul className="text-left space-y-3 mb-8 text-sm">
+              <ul className="text-left space-y-3 mb-8 text-sm flex-1">
                 {[
                   "Allt i månadsabonnemanget",
                   `Betala för ${Math.round(yearlyAmount / monthlyAmount)} månader – få 12`,
@@ -122,20 +124,22 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
                   </li>
                 ))}
               </ul>
-              {!isLoggedIn ? (
-                <Button asChild size="lg" className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg">
-                  <Link href="/signup">Prova gratis i 7 dagar</Link>
-                </Button>
-              ) : (
-                <Button 
-                  size="lg" 
-                  className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg"
-                  onClick={() => handleCheckout('yearly')}
-                  disabled={loading === 'yearly'}
-                >
-                  {loading === 'yearly' ? 'Laddar...' : 'Välj årsabo'}
-                </Button>
-              )}
+              <div className="mt-auto">
+                {!isLoggedIn ? (
+                  <Button asChild size="lg" className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg">
+                    <Link href="/signup">Prova gratis i 7 dagar</Link>
+                  </Button>
+                ) : (
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-orange hover:bg-[#D55A25] text-white rounded-full py-5 text-lg shadow-lg"
+                    onClick={() => handleCheckout('yearly')}
+                    disabled={loading === 'yearly'}
+                  >
+                    {loading === 'yearly' ? 'Laddar...' : 'Välj årsabonnemang'}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
