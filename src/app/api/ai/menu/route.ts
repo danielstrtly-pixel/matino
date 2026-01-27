@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { generateMenu, regenerateMeal, GeneratedMenu } from '@/lib/menu-generator';
+import { generateAIMenu, regenerateAIMeal } from '@/lib/ai-menu-generator';
 
+/**
+ * AI-generated menu endpoint (no external recipe database)
+ * Uses OpenRouter/GPT to generate complete Swedish recipes
+ */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest) {
       includeLunch: prefs?.include_lunch || false,
     };
 
-    // Load user's offers from their selected stores
+    // Load user's offers
     const { data: offers } = await supabase.rpc('get_user_offers', {
       p_user_id: user.id,
     });
@@ -47,7 +51,6 @@ export async function POST(request: NextRequest) {
       original_price?: number;
       store_name: string;
       chain_id: string;
-      image_url?: string;
     }) => ({
       id: o.offer_id,
       name: o.name,
@@ -56,38 +59,37 @@ export async function POST(request: NextRequest) {
       original_price: o.original_price,
       store_name: o.store_name,
       chain_id: o.chain_id,
-      image_url: o.image_url,
     }));
 
     if (action === 'generate') {
-      // Generate new menu
-      const menu = await generateMenu(preferences, formattedOffers);
+      const menu = await generateAIMenu(preferences, formattedOffers);
       return NextResponse.json({ menu });
-    } 
-    
+    }
+
     if (action === 'swap') {
-      // Swap a single meal
       const { currentMenu, dayIndex, meal } = body;
       
       if (!currentMenu || dayIndex === undefined || !meal) {
         return NextResponse.json(
-          { error: 'Missing required parameters: currentMenu, dayIndex, meal' },
+          { error: 'Missing required parameters' },
           { status: 400 }
         );
       }
 
-      const newMeal = await regenerateMeal(
-        currentMenu as GeneratedMenu,
+      const existingNames = currentMenu.items?.map((i: { recipe: { name: string } }) => i.recipe.name) || [];
+      
+      const newMeal = await regenerateAIMeal(
         dayIndex,
         meal,
         preferences,
-        formattedOffers
+        formattedOffers,
+        existingNames
       );
 
       if (!newMeal) {
         return NextResponse.json(
-          { error: 'Could not find a new recipe' },
-          { status: 404 }
+          { error: 'Could not generate new recipe' },
+          { status: 500 }
         );
       }
 
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Menu generation error:', error);
+    console.error('AI Menu generation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to generate menu' },
       { status: 500 }

@@ -106,27 +106,19 @@ node scripts/sync-offers.js
 3. **tsconfig exclude** — lägg till scraper-mappen så Vercel inte bygger den
 4. **Vercel kan inte nå localhost** — använd nattlig cron istället för real-time
 
-## Edamam Recipe API
+## AI-genererade recept
 
-**Dokumentation:** https://developer.edamam.com/edamam-docs-recipe-api
-
-### Aktivera
-
-1. Skapa konto på https://developer.edamam.com/
-2. Skapa en Recipe Search API-applikation
-3. Lägg till credentials i `.env.local`:
-   ```
-   EDAMAM_APP_ID=din_app_id
-   EDAMAM_APP_KEY=din_app_key
-   ```
+Recepten skapas av **Gemini 3 Flash** via OpenRouter baserat på:
+- Användarens preferenser (allergier, dieter, matkulturer)
+- Veckans erbjudanden från valda butiker
+- Hushållets storlek
 
 ### Features
-- Söker recept baserat på användarens erbjudanden
-- Filtrerar på allergier/dieter (gluten-free, vegan, etc.)
-- Filtrerar på kostmål (high-protein, low-carb, etc.)
-- Filtrerar på matkulturer (nordic, italian, asian, etc.)
-- Översätter receptnamn till svenska via OpenRouter
-- Matchar recept med aktuella erbjudanden
+- Helt svenska recept med metriska mått (dl, g, msk)
+- Steg-för-steg instruktioner
+- Näringsvärden (kcal, protein, kolhydrater, fett)
+- Markerar ingredienser som matchar erbjudanden
+- Tips för tillagning
 
 ### Inställningar (Settings-sidan)
 - Hushållsstorlek + barn
@@ -136,7 +128,6 @@ node scripts/sync-offers.js
 - Favoriter & ogillade ingredienser
 - Antal middagar/vecka (3-7)
 - Max tillagningstid (15-90 min)
-- Inkludera lunch
 
 ## TODO
 
