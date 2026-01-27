@@ -63,16 +63,26 @@ export default async function Home() {
               skapar personliga veckomenyer med AI. Spara tid och pengar.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg">
-                <Link href="/demo">Prova nu</Link>
-              </Button>
-              <Button asChild variant="outline" className="rounded-full px-8 py-6 text-lg border-cream-dark hover:bg-cream-dark">
-                <Link href="/signup">Skapa konto</Link>
-              </Button>
+              {isLoggedIn ? (
+                <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg">
+                  <Link href="/dashboard">Gå till Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg">
+                    <Link href="/demo">Prova nu</Link>
+                  </Button>
+                  <Button asChild variant="outline" className="rounded-full px-8 py-6 text-lg border-cream-dark hover:bg-cream-dark">
+                    <Link href="/signup">Skapa konto</Link>
+                  </Button>
+                </>
+              )}
             </div>
-            <p className="text-sm text-charcoal/50 mt-4">
-              ✨ Gratis i 7 dagar · 69 kr/mån · Avsluta när du vill
-            </p>
+            {!isLoggedIn && (
+              <p className="text-sm text-charcoal/50 mt-4">
+                ✨ Gratis i 7 dagar · 69 kr/mån · Avsluta när du vill
+              </p>
+            )}
           </div>
           
           {/* Feature cards floating */}
