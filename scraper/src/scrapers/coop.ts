@@ -119,78 +119,85 @@ export class CoopScraper extends BaseScraper {
   private async extractOffers(page: Page, store: Store): Promise<Offer[]> {
     const offers: Offer[] = [];
     
-    // Debug page first
+    // Debug page first - look for Coop-specific structure
     const pageDebug = await page.evaluate(() => {
+      // Look for offer elements
+      const offerElements = document.querySelectorAll('[class*="Offer"], [class*="offer"]');
+      const offerClasses = Array.from(offerElements).slice(0, 5).map(e => e.getAttribute('class'));
+      
+      // Look for any images with product info
+      const images = document.querySelectorAll('img[alt]');
+      const imgAlts = Array.from(images).slice(0, 10).map(i => i.getAttribute('alt')).filter(a => a && a.length > 3);
+      
+      // Look for price-like text
+      const allText = document.body?.innerText || '';
+      const priceMatches = allText.match(/\d+[,.]\d+\s*(kr|:-)/gi)?.slice(0, 5) || [];
+      
       return {
         url: window.location.href,
         title: document.title,
-        bodyLength: document.body?.innerHTML?.length || 0,
-        priceCount: document.querySelectorAll('[class*="price"], [class*="Price"]').length,
-        productCount: document.querySelectorAll('[class*="product"], [class*="Product"]').length,
-        offerCount: document.querySelectorAll('[class*="offer"], [class*="Offer"]').length,
-        allClassNames: Array.from(new Set(
-          Array.from(document.querySelectorAll('[class]'))
-            .flatMap(e => (e.className || '').split(' '))
-            .filter(c => c.length > 3)
-        )).slice(0, 30),
+        offerElementCount: offerElements.length,
+        offerClasses,
+        imgAlts,
+        priceMatches,
       };
     });
     console.log('[Coop] Page debug:', JSON.stringify(pageDebug));
     
-    // Extract products using page.evaluate
+    // Extract products using Coop-specific selectors
     const rawProducts = await page.evaluate(() => {
       const products: any[] = [];
       
-      // Method 1: Find elements with price containers
-      let items: Element[] = [];
-      const priceElements = document.querySelectorAll('[class*="price"], [class*="Price"]');
+      // Coop uses PointOfferTeaser for offer cards
+      // Also look for product images with alt text and nearby price text
       
-      priceElements.forEach(priceEl => {
-        // Walk up to find a reasonable container
-        let parent = priceEl.parentElement;
-        for (let i = 0; i < 6 && parent; i++) {
-          const className = parent.className || '';
-          if (className.includes('product') || className.includes('Product') || 
-              className.includes('offer') || className.includes('Offer') ||
-              className.includes('item') || className.includes('Item') ||
-              className.includes('card') || className.includes('Card')) {
-            if (!items.includes(parent)) {
-              items.push(parent);
-            }
-            break;
-          }
-          parent = parent.parentElement;
-        }
-      });
+      // Method 1: Find PointOfferTeaser elements
+      const offerTeasers = document.querySelectorAll('[class*="PointOfferTeaser"], [class*="OfferTeaser"], [class*="ProductCard"]');
       
-      items.forEach(item => {
+      offerTeasers.forEach(item => {
         try {
-          // Find name
-          const nameEl = item.querySelector('[class*="name"], [class*="Name"], [class*="title"], [class*="Title"], h2, h3, h4, p');
-          let name = nameEl?.textContent?.trim();
+          const heading = item.querySelector('[class*="heading"], h2, h3, h4');
+          const name = heading?.textContent?.trim();
           
-          // Skip if name is too short or looks like a price
-          if (!name || name.length < 2 || /^\d+[,.]?\d*\s*(kr|:-|st)?$/i.test(name)) {
-            // Try to find name from img alt
-            const img = item.querySelector('img');
-            name = img?.getAttribute('alt')?.trim();
-          }
+          // Get all text to find price
+          const allText = item.textContent || '';
+          const priceMatch = allText.match(/(\d+)[,.](\d+)\s*(kr|:-)/i);
+          const priceText = priceMatch ? priceMatch[0] : null;
           
-          // Find price
-          const priceEl = item.querySelector('[class*="price"], [class*="Price"]');
-          const priceText = priceEl?.textContent?.trim();
+          const img = item.querySelector('img');
+          const imageUrl = img?.getAttribute('src') || img?.getAttribute('data-src');
           
-          // Find image
-          const imgEl = item.querySelector('img');
-          const imageUrl = imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src');
-          
-          if (name && priceText && name.length > 2) {
+          if (name && priceText) {
             products.push({ name, priceText, imageUrl });
           }
-        } catch (e) {
-          // Skip problematic elements
-        }
+        } catch (e) {}
       });
+      
+      // Method 2: Find product images with prices nearby
+      if (products.length === 0) {
+        const productImages = document.querySelectorAll('img[alt]');
+        productImages.forEach(img => {
+          const alt = img.getAttribute('alt')?.trim();
+          if (!alt || alt.length < 3 || alt.includes('Butiks') || alt.includes('Ladda')) return;
+          
+          // Look for price in nearby elements
+          let parent = img.parentElement;
+          for (let i = 0; i < 5 && parent; i++) {
+            const text = parent.textContent || '';
+            const priceMatch = text.match(/(\d+)[,.](\d+)\s*(kr|:-)/i);
+            if (priceMatch) {
+              const imageUrl = img.getAttribute('src') || img.getAttribute('data-src');
+              products.push({ 
+                name: alt, 
+                priceText: priceMatch[0], 
+                imageUrl 
+              });
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        });
+      }
       
       return products;
     });
