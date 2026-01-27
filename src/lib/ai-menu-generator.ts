@@ -158,7 +158,7 @@ Svara i JSON-format:
       },
       { role: 'user', content: prompt },
     ], {
-      model: 'google/gemini-2.5-flash-preview',
+      model: 'google/gemini-3-flash-preview',
       temperature: 0.8,
       max_tokens: 4000,
       json_mode: true,
@@ -203,7 +203,7 @@ Svara i JSON-format:
     return {
       items: menuItems,
       generatedAt: new Date().toISOString(),
-      model: 'google/gemini-2.5-flash-preview',
+      model: 'google/gemini-3-flash-preview',
     };
   } catch (error) {
     console.error('[AI-MenuGen] Error:', error);
@@ -255,7 +255,7 @@ Svara i JSON:
       { role: 'system', content: 'Du är en svensk kock. Svara i JSON.' },
       { role: 'user', content: prompt },
     ], {
-      model: 'google/gemini-2.5-flash-preview',
+      model: 'google/gemini-3-flash-preview',
       temperature: 0.9,
       max_tokens: 1500,
       json_mode: true,
