@@ -2,8 +2,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
+
   return (
     <div className="min-h-screen bg-cream">
       {/* Navigation */}
@@ -24,12 +29,20 @@ export default function Home() {
           </Link>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/login" className="text-charcoal/70 hover:text-charcoal transition-colors hidden sm:block">
-            Logga in
-          </Link>
-          <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-6">
-            <Link href="/signup">Kom igång</Link>
-          </Button>
+          {isLoggedIn ? (
+            <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-6">
+              <Link href="/dashboard">Gå till Dashboard</Link>
+            </Button>
+          ) : (
+            <>
+              <Link href="/login" className="text-charcoal/70 hover:text-charcoal transition-colors hidden sm:block">
+                Logga in
+              </Link>
+              <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-6">
+                <Link href="/signup">Kom igång</Link>
+              </Button>
+            </>
+          )}
         </div>
       </nav>
 

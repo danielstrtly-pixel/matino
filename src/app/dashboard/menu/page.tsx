@@ -218,20 +218,20 @@ export default function MenuPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 flex justify-between items-start">
+    <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Din veckomeny</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-2xl md:text-3xl font-bold">Din veckomeny</h1>
+          <p className="text-gray-600 mt-1 md:mt-2 text-sm md:text-base">
             Recept skapade utifrån dina preferenser och veckans erbjudanden.
           </p>
           {menu?.name && (
-            <p className="text-sm text-green-600 mt-1">
+            <p className="text-xs md:text-sm text-green-600 mt-1">
               📅 {menu.name} • Skapad {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button 
             variant="outline"
             onClick={() => {
@@ -306,17 +306,17 @@ export default function MenuPage() {
                 className="hover:shadow-md transition-shadow"
               >
                 <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-green-600">{item.day}</p>
-                      <CardTitle className="text-xl mt-1">{item.recipe.name}</CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">{item.recipe.description}</p>
+                      <CardTitle className="text-lg md:text-xl mt-1">{item.recipe.name}</CardTitle>
+                      <p className="text-xs md:text-sm text-gray-500 mt-1 line-clamp-2 md:line-clamp-none">{item.recipe.description}</p>
                     </div>
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      <Badge variant="outline">⏱️ {item.recipe.totalTime} min</Badge>
-                      <Badge variant="outline">🍽️ {item.recipe.servings} port</Badge>
-                      <Badge variant="outline">🔥 {item.recipe.nutrition.calories} kcal</Badge>
-                      <Badge variant="secondary">{item.recipe.difficulty}</Badge>
+                    <div className="flex gap-1 md:gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs">⏱️ {item.recipe.totalTime} min</Badge>
+                      <Badge variant="outline" className="text-xs">🍽️ {item.recipe.servings} port</Badge>
+                      <Badge variant="outline" className="text-xs hidden md:inline-flex">🔥 {item.recipe.nutrition.calories} kcal</Badge>
+                      <Badge variant="secondary" className="text-xs">{item.recipe.difficulty}</Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -342,10 +342,11 @@ export default function MenuPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button 
                       variant="outline" 
                       size="sm" 
+                      className="text-xs md:text-sm"
                       onClick={() => openSwapDialog(item)}
                       disabled={isSwapping}
                     >
@@ -354,6 +355,7 @@ export default function MenuPage() {
                     <Button 
                       variant="ghost" 
                       size="sm"
+                      className="text-xs md:text-sm"
                       onClick={() => setSelectedRecipe(item)}
                     >
                       📖 Visa recept
