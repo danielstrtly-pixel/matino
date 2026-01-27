@@ -210,17 +210,34 @@ export class HemkopScraper extends BaseScraper {
           const imgEl = await container.$('img[src*="assets.axfood.se"]');
           const imageUrl = imgEl ? await imgEl.getAttribute('src') : undefined;
           
-          // Get price
+          // Get price - check for "X FÖR" pattern
           const priceEl = await container.$('[data-testid="price-text"], [data-testid="price-container"]');
           const priceText = priceEl ? (await priceEl.textContent())?.trim() : '';
-          const priceMatch = priceText?.match(/(\d+)[,.]?(\d*)/);
-          if (!priceMatch) continue;
+          const fullText = (await container.textContent()) || '';
           
-          const whole = parseInt(priceMatch[1]);
-          const decimal = priceMatch[2] ? parseInt(priceMatch[2].padEnd(2, '0')) / 100 : 0;
-          const offerPrice = whole + decimal;
+          let offerPrice: number | undefined;
+          let quantity: number | undefined;
+          let quantityPrice: number | undefined;
           
-          if (offerPrice < 1 || offerPrice > 10000) continue;
+          // Check for "X FÖR" pattern in full text (e.g., "2 FÖR 50:-")
+          const forMatch = fullText.match(/(\d+)\s*FÖR\s*(\d+)(?::-|,(\d{2}))?/i);
+          if (forMatch) {
+            quantity = parseInt(forMatch[1]);
+            const whole = parseInt(forMatch[2]);
+            const decimal = forMatch[3] ? parseInt(forMatch[3]) / 100 : 0;
+            offerPrice = whole + decimal;
+            quantityPrice = Math.round((offerPrice / quantity) * 100) / 100;
+          } else {
+            // Regular price
+            const priceMatch = priceText?.match(/(\d+)[,.]?(\d*)/);
+            if (!priceMatch) continue;
+            
+            const whole = parseInt(priceMatch[1]);
+            const decimal = priceMatch[2] ? parseInt(priceMatch[2].padEnd(2, '0')) / 100 : 0;
+            offerPrice = whole + decimal;
+          }
+          
+          if (!offerPrice || offerPrice < 1 || offerPrice > 10000) continue;
           
           // Get brand/manufacturer
           const brandEl = await container.$('[data-testid="display-manufacturer"]');
@@ -231,7 +248,6 @@ export class HemkopScraper extends BaseScraper {
           const unit = unitEl ? (await unitEl.textContent())?.trim().replace('/', '') : undefined;
           
           // Check for membership requirement (Klubbpris)
-          const fullText = (await container.textContent()) || '';
           const requiresMembership = /klubbpris/i.test(fullText);
           
           // Classify category based on product name
@@ -242,6 +258,8 @@ export class HemkopScraper extends BaseScraper {
             name,
             brand,
             offerPrice,
+            quantity,
+            quantityPrice,
             unit,
             imageUrl: imageUrl || undefined,
             storeId: store.id,
