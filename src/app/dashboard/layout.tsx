@@ -33,7 +33,7 @@ export default async function DashboardLayout({
       {/* Top Navigation */}
       <nav className="bg-cream-light border-b border-cream-dark sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="text-2xl">🥗</span>
             <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
           </Link>
