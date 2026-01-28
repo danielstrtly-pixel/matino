@@ -75,7 +75,7 @@ export function PricingSection({ isLoggedIn }: PricingSectionProps) {
   const savingsPercent = Math.round((savings / yearlyMonthlyEquivalent) * 100);
 
   return (
-    <section className="container mx-auto px-4 py-16 md:py-24">
+    <section id="pricing" className="container mx-auto px-4 py-16 md:py-24">
       <div className="max-w-4xl mx-auto text-center">
         <h2 className="text-2xl md:text-3xl font-serif font-bold text-charcoal mb-4">
           Enkel prissättning
