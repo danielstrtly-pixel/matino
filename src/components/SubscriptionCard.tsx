@@ -102,31 +102,30 @@ export function SubscriptionCard() {
     );
   }
 
-  // Calculate trial info
-  const isTrialing = subscription.status === 'trialing';
+  // Calculate subscription info
   const periodEnd = new Date(subscription.current_period_end);
-  const now = new Date();
-  const daysLeft = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   
+  const isYearly = subscription.interval === 'year';
+  const planName = isYearly ? 'Årsabonnemang' : 'Månadsabonnemang';
   const priceFormatted = subscription.unit_amount 
-    ? `${subscription.unit_amount / 100} kr/${subscription.interval === 'month' ? 'mån' : 'år'}`
+    ? `${subscription.unit_amount / 100} kr/${isYearly ? 'år' : 'mån'}`
     : '';
 
-  const statusLabel = {
-    trialing: 'Provperiod',
-    active: 'Aktiv',
+  const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+
+  const statusLabel = isActive ? 'Aktiv' : ({
     canceled: 'Avslutad',
     past_due: 'Förfallen betalning',
     unpaid: 'Obetald',
-  }[subscription.status] || subscription.status;
+  }[subscription.status] || subscription.status);
 
-  const statusColor = {
-    trialing: 'bg-blue-100 text-blue-800',
-    active: 'bg-green-100 text-green-800',
-    canceled: 'bg-gray-100 text-gray-800',
-    past_due: 'bg-red-100 text-red-800',
-    unpaid: 'bg-red-100 text-red-800',
-  }[subscription.status] || 'bg-gray-100 text-gray-800';
+  const statusColor = isActive
+    ? 'bg-green-100 text-green-800'
+    : ({
+      canceled: 'bg-gray-100 text-gray-800',
+      past_due: 'bg-red-100 text-red-800',
+      unpaid: 'bg-red-100 text-red-800',
+    }[subscription.status] || 'bg-gray-100 text-gray-800');
 
   return (
     <Card>
@@ -135,32 +134,22 @@ export function SubscriptionCard() {
         <CardDescription>Hantera din betalning</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className={`flex items-center justify-between p-4 rounded-lg mb-4 ${isTrialing ? 'bg-blue-50' : 'bg-green-50'}`}>
+        <div className="flex items-center justify-between p-4 rounded-lg mb-4 bg-green-50">
           <div>
-            <p className="font-medium">
-              {isTrialing ? 'Gratis provperiod' : subscription.product_name || 'SmartaMenyn'}
-            </p>
+            <p className="font-medium">{planName}</p>
             <p className="text-sm text-gray-500">
-              {isTrialing 
-                ? `${daysLeft} ${daysLeft === 1 ? 'dag' : 'dagar'} kvar`
-                : subscription.cancel_at_period_end 
-                  ? `Avslutas ${periodEnd.toLocaleDateString('sv-SE')}`
-                  : `Förnyas ${periodEnd.toLocaleDateString('sv-SE')}`
+              {subscription.cancel_at_period_end 
+                ? `Avslutas ${periodEnd.toLocaleDateString('sv-SE')}`
+                : `Förnyas ${periodEnd.toLocaleDateString('sv-SE')}`
               }
             </p>
           </div>
           <Badge className={statusColor}>{statusLabel}</Badge>
         </div>
         
-        {isTrialing && priceFormatted && (
+        {priceFormatted && (
           <p className="text-sm text-gray-500 mb-4">
-            Efter provperioden: {priceFormatted}. Avsluta när du vill.
-          </p>
-        )}
-        
-        {!isTrialing && priceFormatted && (
-          <p className="text-sm text-gray-500 mb-4">
-            {priceFormatted}
+            {priceFormatted} · Avsluta när du vill.
           </p>
         )}
 
