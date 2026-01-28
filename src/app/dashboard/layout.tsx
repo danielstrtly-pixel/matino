@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/LogoutButton";
+import { TrialBanner } from "@/components/TrialBanner";
+import { checkAccess } from "@/lib/access";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +16,8 @@ export default async function DashboardLayout({
   if (!user) {
     redirect("/login");
   }
+
+  const access = await checkAccess();
 
   const navItems = [
     { href: "/dashboard", label: "Översikt", icon: "🏠" },
@@ -72,6 +76,11 @@ export default async function DashboardLayout({
           </div>
         </div>
       </nav>
+      
+      {/* Trial banner */}
+      {access.isTrialing && access.trialDaysLeft !== null && (
+        <TrialBanner daysLeft={access.trialDaysLeft} />
+      )}
       
       <main className="pb-8">{children}</main>
     </div>
