@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import Image from "next/image";
-
 type MenuMode = 'taste' | 'budget';
 
 interface RecipeLink {
@@ -434,13 +432,12 @@ function RecipeCard({ recipe }: { recipe: RecipeLink }) {
       {/* Image */}
       <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
         {recipe.imageUrl ? (
-          <Image
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
             src={recipe.imageUrl}
             alt={recipe.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 768px) 100vw, 33vw"
-            unoptimized
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
           />
         ) : (
           <div className="flex items-center justify-center h-full text-4xl text-gray-300">

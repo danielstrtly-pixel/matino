@@ -79,6 +79,9 @@ export async function searchRecipes(
       const source = sources.find(s => item.url.includes(s.domain.split('/')[0]));
       if (!source) continue;
 
+      // Skip collection/category pages (not specific recipes)
+      if (isCollectionUrl(item.url)) continue;
+
       // Limit to 1 per source (best match)
       if (foundSources.has(source.id)) continue;
       foundSources.add(source.id);
@@ -171,6 +174,22 @@ function buildSearchLink(
     description: `Hitta recept på ${mealName} hos ${source.name}`,
     source: source.name,
   };
+}
+
+/** Check if URL is a collection/category page rather than a specific recipe */
+function isCollectionUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    // Arla collection pages (/recept/samling/...)
+    if (u.pathname.includes('/samling/')) return true;
+    // Search result pages
+    if (u.search.includes('q=') || u.search.includes('query=')) return true;
+    // ICA category pages (no digits = no recipe ID, e.g. /recept/kyckling/gryta/)
+    if (u.hostname.includes('ica.se') && u.pathname.includes('/recept/') && u.pathname.split('/').length > 3 && !/\d/.test(u.pathname)) return true;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /** Strip HTML tags from Brave search descriptions */
