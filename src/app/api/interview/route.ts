@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     ];
 
     let response = await chat(fullMessages, {
-      model: 'google/gemini-2.0-flash-001',
+      model: 'google/gemini-3-flash-preview',
       temperature: 0.7,
       max_tokens: 2000,
     });
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       ];
 
       const retryResponse = await chat(retryMessages, {
-        model: 'google/gemini-2.0-flash-001',
+        model: 'google/gemini-3-flash-preview',
         temperature: 0.5,
         max_tokens: 2000,
       });
