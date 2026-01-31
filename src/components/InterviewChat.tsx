@@ -104,7 +104,10 @@ export function InterviewChat({ open, onClose, onSaved }: InterviewChatProps) {
           
           if (profileMatch) {
             try {
-              const parsed = JSON.parse(profileMatch[1].trim());
+              // Strip markdown code blocks if present
+              let jsonStr = profileMatch[1].trim();
+              jsonStr = jsonStr.replace(/^```json?\s*/i, '').replace(/\s*```$/, '');
+              const parsed = JSON.parse(jsonStr);
               setProfile(parsed);
             } catch (e) {
               console.error("Failed to parse profile:", e);
