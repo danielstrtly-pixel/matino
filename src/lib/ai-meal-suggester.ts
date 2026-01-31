@@ -155,42 +155,69 @@ export async function regenerateMeal(
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
+// ─── AI Prompts ──────────────────────────────────────────────
 
 /**
- * Pick a balanced sample of offers across all chains
- * Instead of just taking first N (which biases toward one store),
- * round-robin across chains to get variety.
+ * Step 1: AI curates the best offers for menu building
+ * Sends ALL offers, asks AI to pick the 30-50 best cooking ingredients.
+ * Filters out non-food, candy, snacks, drinks etc.
  */
-function balancedOfferSample(offers: Offer[], maxTotal: number): Offer[] {
-  // Group by chain
-  const byChain = new Map<string, Offer[]>();
-  for (const o of offers) {
-    const key = o.chain_id || o.store_name;
-    if (!byChain.has(key)) byChain.set(key, []);
-    byChain.get(key)!.push(o);
+async function curateOffers(offers: Offer[]): Promise<Offer[]> {
+  if (offers.length <= 40) return offers; // No need to curate small lists
+
+  console.log(`[MealSuggester] Curating ${offers.length} offers...`);
+
+  const allOffers = offers.map((o, i) =>
+    `${i}: ${o.name} (${o.offer_price} kr, ${o.store_name})`
+  ).join('\n');
+
+  const prompt = `Du får en lista med ${offers.length} erbjudanden från matbutiker.
+Välj ut de 30-50 BÄSTA erbjudandena för att bygga attraktiva middagsrätter.
+
+PRIORITERA:
+- Proteinkällor (kött, fisk, kyckling, ägg, bönor)
+- Grönsaker och rotfrukter
+- Mejeriprodukter (grädde, ost, crème fraiche)
+- Basvaror (pasta, ris, potatis)
+- Kryddor och såser
+
+IGNORERA:
+- Godis, chips, snacks
+- Läsk, juice, alkohol
+- Hygienartiklar och non-food
+- Frukostflingor, müsli
+- Kaffe, te
+
+Svara med en JSON-array av indexnummer:
+{"selected": [0, 3, 7, 12, ...]}
+
+ERBJUDANDEN:
+${allOffers}`;
+
+  try {
+    const result = await chat([
+      { role: 'system', content: 'Välj de bästa matlagningsingredienserna. Svara i JSON.' },
+      { role: 'user', content: prompt },
+    ], {
+      model: 'google/gemini-3-flash-preview',
+      temperature: 0.3,
+      max_tokens: 1000,
+      json_mode: true,
+    });
+
+    const parsed = JSON.parse(result);
+    const indices: number[] = parsed.selected || [];
+    const curated = indices
+      .filter(i => i >= 0 && i < offers.length)
+      .map(i => offers[i]);
+
+    console.log(`[MealSuggester] Curated ${curated.length} offers from ${offers.length}`);
+    return curated.length > 0 ? curated : offers.slice(0, 40);
+  } catch (error) {
+    console.error('[MealSuggester] Curation error:', error);
+    return offers.slice(0, 40);
   }
-
-  const chains = Array.from(byChain.values());
-  const result: Offer[] = [];
-  let round = 0;
-
-  while (result.length < maxTotal) {
-    let added = false;
-    for (const chainOffers of chains) {
-      if (round < chainOffers.length && result.length < maxTotal) {
-        result.push(chainOffers[round]);
-        added = true;
-      }
-    }
-    if (!added) break;
-    round++;
-  }
-
-  return result;
 }
-
-// ─── AI Prompts ──────────────────────────────────────────────
 
 function buildProfileContext(preferences: UserPreferences): string {
   const restrictions = [
@@ -230,8 +257,10 @@ async function suggestMeals(
   mode: MenuMode
 ): Promise<MealSuggestion[]> {
   const profileContext = buildProfileContext(preferences);
-  const sampledOffers = balancedOfferSample(offers, 40);
-  const offersSummary = sampledOffers.map(o =>
+
+  // Step 1: Curate offers — AI picks the best cooking ingredients
+  const curatedOffers = await curateOffers(offers);
+  const offersSummary = curatedOffers.map(o =>
     `- ${o.name} (${o.offer_price} kr, ${o.store_name})`
   ).join('\n');
 
@@ -330,8 +359,8 @@ async function suggestOneMeal(
   userPreference?: string | null,
   feedbackHistory?: { reason?: string; preference?: string }[]
 ): Promise<MealSuggestion | null> {
-  const sampledOffers = balancedOfferSample(offers, 20);
-  const offersSummary = sampledOffers.map(o =>
+  const curatedOffers = offers.length > 20 ? await curateOffers(offers) : offers;
+  const offersSummary = curatedOffers.slice(0, 20).map(o =>
     `- ${o.name} (${o.offer_price} kr, ${o.store_name})`
   ).join('\n');
 
