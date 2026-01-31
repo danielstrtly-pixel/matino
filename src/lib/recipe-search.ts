@@ -11,11 +11,6 @@ export interface RecipeLink {
   imageUrl?: string; // recipe photo from the site
 }
 
-export interface RecipeSearchResult {
-  mealName: string;
-  recipes: RecipeLink[];
-}
-
 // Default recipe sources
 export const DEFAULT_RECIPE_SOURCES = [
   { id: 'ica', name: 'ICA', domain: 'ica.se/recept' },
@@ -110,28 +105,6 @@ export async function searchRecipes(
     console.error('[RecipeSearch] Error:', error);
     return buildFallbackLinks(mealName, sourceIds);
   }
-}
-
-/**
- * Search recipes for multiple meals sequentially (respects Brave free tier 1 req/sec)
- */
-export async function searchRecipesForMeals(
-  mealNames: string[],
-  sourceIds?: RecipeSourceId[]
-): Promise<RecipeSearchResult[]> {
-  const results: RecipeSearchResult[] = [];
-  for (let i = 0; i < mealNames.length; i++) {
-    if (i > 0) await delay(1100); // 1.1s between requests for rate limit
-    results.push({
-      mealName: mealNames[i],
-      recipes: await searchRecipes(mealNames[i], sourceIds),
-    });
-  }
-  return results;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
