@@ -418,12 +418,37 @@ function matchOffersToMeal(
 ): MenuItemWithRecipes['matchedOffers'] {
   const matched: MenuItemWithRecipes['matchedOffers'] = [];
 
+  // Build a text blob from the meal for sanity checking
+  const mealText = [
+    suggestion.name,
+    suggestion.description,
+    ...(suggestion.tags || []),
+  ].join(' ').toLowerCase();
+
   for (const offerName of suggestion.usesOffers || []) {
     const offer = offers.find(o =>
       o.name.toLowerCase().includes(offerName.toLowerCase()) ||
       offerName.toLowerCase().includes(o.name.toLowerCase().split(' ')[0])
     );
-    if (offer && !matched.find(m => m.offerId === offer.id)) {
+    if (!offer || matched.find(m => m.offerId === offer.id)) continue;
+
+    // Sanity check: does the offer keyword actually appear in the meal?
+    // Extract the main food word from the offer (skip generic words like "färsk", "svensk")
+    const offerWords = offer.name.toLowerCase()
+      .replace(/färsk[a]?|svensk[a]?|ekologisk[a]?|på burk|i bit/g, '')
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length >= 3);
+
+    // Also extract root words (e.g., "kycklingfilé" → "kyckling", "köttfärslimpa" → "köttfärs")
+    const ROOTS = ['kyckling', 'köttfärs', 'fläsk', 'nöt', 'lax', 'torsk', 'potatis', 'tomat', 'pasta', 'bacon', 'korv'];
+    const offerRoots = offerWords.flatMap(w => {
+      const root = ROOTS.find(r => w.startsWith(r));
+      return root && root !== w ? [w, root] : [w];
+    });
+
+    const isRelevant = offerRoots.some(w => mealText.includes(w));
+    if (isRelevant) {
       matched.push({
         offerId: offer.id,
         offerName: offer.name,
