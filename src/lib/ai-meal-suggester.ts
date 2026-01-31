@@ -410,41 +410,20 @@ Svara i JSON:
   return JSON.parse(result);
 }
 
-// ─── Offer Matching ──────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────
 
-/**
- * Match offers to a meal using keyword extraction from the meal name/description/tags.
- * Does NOT trust AI's usesOffers — instead does real ingredient matching.
- */
 function matchOffersToMeal(
   suggestion: MealSuggestion,
   offers: Offer[]
 ): MenuItemWithRecipes['matchedOffers'] {
-  // Build keyword set from meal name, description, and tags
-  const mealText = [
-    suggestion.name,
-    suggestion.description,
-    ...(suggestion.tags || []),
-  ].join(' ').toLowerCase();
-
-  const mealKeywords = extractFoodKeywords(mealText);
   const matched: MenuItemWithRecipes['matchedOffers'] = [];
-  const matchedIds = new Set<string>();
 
-  for (const offer of offers) {
-    if (matchedIds.has(offer.id)) continue;
-    const offerKeywords = extractFoodKeywords(offer.name.toLowerCase());
-
-    // Check if any offer keyword matches any meal keyword
-    // Use startsWith to avoid false positives like "ost" in "rostad"
-    const hasMatch = offerKeywords.some(ok =>
-      mealKeywords.some(mk =>
-        mk === ok || mk.startsWith(ok) || ok.startsWith(mk)
-      )
+  for (const offerName of suggestion.usesOffers || []) {
+    const offer = offers.find(o =>
+      o.name.toLowerCase().includes(offerName.toLowerCase()) ||
+      offerName.toLowerCase().includes(o.name.toLowerCase().split(' ')[0])
     );
-
-    if (hasMatch) {
-      matchedIds.add(offer.id);
+    if (offer && !matched.find(m => m.offerId === offer.id)) {
       matched.push({
         offerId: offer.id,
         offerName: offer.name,
@@ -452,62 +431,7 @@ function matchOffersToMeal(
         store: offer.store_name,
       });
     }
-
-    // Max 4 offers per meal to keep it clean
-    if (matched.length >= 4) break;
   }
 
   return matched;
-}
-
-/**
- * Extract meaningful food keywords from text.
- * Filters out common non-food words and short words.
- */
-function extractFoodKeywords(text: string): string[] {
-  // Common words to skip
-  const stopwords = new Set([
-    'med', 'och', 'i', 'på', 'en', 'ett', 'för', 'av', 'till', 'den', 'det',
-    'som', 'är', 'från', 'eller', 'samt', 'nya', 'god', 'gott', 'goda',
-    'smakrik', 'krämig', 'klassisk', 'enkel', 'snabb', 'färsk', 'svensk',
-    'hemlagad', 'serveras', 'recept', 'portioner', 'portion', 'extra',
-    'min', 'minuter', 'lätt', 'medel', 'billig', 'billigt',
-  ]);
-
-  const words = text
-    .replace(/[^a-zåäö\s-]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length >= 3 && !stopwords.has(w));
-
-  // Split compound words and normalize
-  // "kycklingpasta" → ["kyckling", "pasta"], "köttfärssås" → ["köttfärs", "sås"]
-  const PREFIXES = [
-    'kyckling', 'köttfärs', 'fläsk', 'nöt', 'lax', 'torsk', 'räk',
-    'potatis', 'tomat', 'vitlök', 'lök', 'paprika', 'bacon', 'korv',
-    'ost', 'grädde', 'smör', 'pasta', 'ris',
-  ];
-
-  const result: string[] = [];
-  for (const w of words) {
-    let split = false;
-    for (const prefix of PREFIXES) {
-      if (w.startsWith(prefix) && w.length > prefix.length) {
-        result.push(prefix);
-        const remainder = w.slice(prefix.length);
-        if (remainder.length >= 3 && !stopwords.has(remainder)) {
-          result.push(remainder);
-        }
-        split = true;
-        break;
-      }
-    }
-    if (!split) {
-      // Check if the word IS a known food term
-      const normalized = PREFIXES.find(p => w.startsWith(p));
-      result.push(normalized || w);
-    }
-  }
-
-  // Deduplicate
-  return [...new Set(result)];
 }
