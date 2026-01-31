@@ -310,11 +310,16 @@ export default function MenuPage() {
                     <h2 className="text-lg font-bold text-green-700">{item.day}</h2>
                     {item.matchedOffers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {item.matchedOffers.map((offer, i) => (
-                          <Badge key={i} className="bg-green-100 text-green-800 text-xs font-normal">
-                            🏷️ {offer.offerName} {offer.price} kr
-                          </Badge>
-                        ))}
+                        {item.matchedOffers.map((offer, i) => {
+                          const shortStore = offer.store
+                            .replace('Supermarket ', '')
+                            .replace(', Sthlm', '');
+                          return (
+                            <Badge key={i} className="bg-green-100 text-green-800 text-xs font-normal">
+                              🏷️ {offer.offerName} {offer.price} kr — {shortStore}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
