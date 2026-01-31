@@ -24,18 +24,18 @@ VIKTIGT: Du MÅSTE använda exakt dessa markörer. Skriv INTE sammanfattningen u
 Skriv sammanfattningen i detta EXAKTA format:
 
 ---SAMMANFATTNING---
-[Skriv en naturlig sammanfattning av vad du lärt dig, i 2:a person]
+[Skriv en DETALJERAD sammanfattning i 2:a person. BEVARA specifika rätter med tillagning och smaksättning – skriv INTE bara "kyckling" om de sa "krämig kycklinggryta med curry och kokosmjölk". Detaljer om smak, tillagning och stil är avgörande.]
 ---PROFIL---
-[Skriv en detaljerad profil i JSON-format som kan användas för att generera menyer:]
+[Skriv i JSON-format, UTAN markdown code blocks:]
 {
   "householdSize": <antal>,
-  "currentHabits": "<vad de brukar äta>",
+  "currentMeals": "<DETALJERAD beskrivning av specifika rätter de brukar äta, med tillagning och smaker – inte bara ingredienser>",
   "wantedChanges": "<vad de vill ändra>",
   "restrictions": ["<allergier/undvikanden>"],
   "luxuryDays": "<vilka dagar>",
-  "quickDays": "<vilka dagar>",
-  "preferences": "<fri text med all viktig info>",
-  "menuPrompt": "<en komplett prompt som kan användas för att generera den perfekta menyn för denna familj>"
+  "quickDays": "<vilka dagar och maxtid>",
+  "preferences": "<UTFÖRLIG fri text med ALL info – specifika rätter, smaker, tillagningsstilar, allt som hjälper skapa den perfekta menyn>",
+  "menuPrompt": "<en DETALJERAD prompt för att generera menyn – inkludera specifika rätter de gillar som inspiration, smakprofiler, tillagningspreferenser, allt>"
 }
 ---SLUT---
 
