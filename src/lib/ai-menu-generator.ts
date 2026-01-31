@@ -17,6 +17,15 @@ export interface UserPreferences {
   mealsPerWeek: number;
   maxCookTime: number;
   includeLunch: boolean;
+  interviewProfile?: {
+    currentMeals?: string;
+    wantedChanges?: string;
+    restrictions?: string[];
+    luxuryDays?: string;
+    quickDays?: string;
+    preferences?: string;
+    menuPrompt?: string;
+  } | null;
 }
 
 export interface Offer {
@@ -92,16 +101,31 @@ export async function generateAIMenu(
   const restrictions = [
     ...preferences.healthLabels,
     ...preferences.dietLabels,
+    ...(preferences.interviewProfile?.restrictions || []),
   ].filter(Boolean);
+
+  // Build profile section from interview if available
+  const ip = preferences.interviewProfile;
+  const hasInterview = ip?.menuPrompt || ip?.preferences;
+  
+  const interviewContext = hasInterview ? `
+MATPROFIL (från intervju med användaren):
+${ip?.menuPrompt || ip?.preferences || ''}
+
+${ip?.currentMeals ? `RÄTTER DE BRUKAR ÄTA OCH GILLAR:\n${ip.currentMeals}` : ''}
+${ip?.wantedChanges ? `ÖNSKADE FÖRÄNDRINGAR:\n${ip.wantedChanges}` : ''}
+${ip?.luxuryDays ? `LYXDAGAR: ${ip.luxuryDays}` : ''}
+${ip?.quickDays ? `SNABBA DAGAR: ${ip.quickDays}` : ''}
+` : '';
 
   const prompt = `Du är en svensk måltidsplanerare. Skapa en veckomeny med ${preferences.mealsPerWeek} middagsrecept.
 
 HUSHÅLL:
 - ${preferences.householdSize} personer${preferences.hasChildren ? ' (inkl. barn)' : ''}
 - Max tillagningstid: ${preferences.maxCookTime} minuter
-
+${interviewContext}
 KOSTRESTRIKTIONER:
-${restrictions.length > 0 ? restrictions.map(r => `- ${r}`).join('\n') : '- Inga'}
+${restrictions.length > 0 ? [...new Set(restrictions)].map(r => `- ${r}`).join('\n') : '- Inga'}
 
 OGILLAR:
 ${preferences.dislikes.length > 0 ? preferences.dislikes.map(d => `- ${d}`).join('\n') : '- Inget speciellt'}

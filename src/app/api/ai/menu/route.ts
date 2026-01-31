@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
       mealsPerWeek: prefs?.meals_per_week || 5,
       maxCookTime: prefs?.max_cook_time || 45,
       includeLunch: prefs?.include_lunch || false,
+      interviewProfile: prefs?.interview_profile || null,
     };
 
     // Load user's offers
