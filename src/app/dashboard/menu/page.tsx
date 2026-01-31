@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,51 +15,46 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+type MenuMode = 'taste' | 'budget';
 
-interface AIRecipe {
-  name: string;
+interface RecipeLink {
+  title: string;
+  url: string;
   description: string;
-  servings: number;
-  prepTime: number;
-  cookTime: number;
-  totalTime: number;
-  difficulty: string;
-  ingredients: {
-    amount: string;
-    unit: string;
-    item: string;
-    isOffer?: boolean;
-  }[];
-  instructions: string[];
-  tips?: string;
-  nutrition: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  };
-  tags: string[];
+  source: string;
+  imageUrl?: string;
 }
 
-interface AIMenuItem {
+interface MealSuggestion {
+  name: string;
+  searchQuery?: string;
+  description: string;
+  tags: string[];
+  usesOffers?: string[];
+}
+
+interface MatchedOffer {
+  offerId: string;
+  offerName: string;
+  price: number;
+  store: string;
+}
+
+interface MenuItem {
   day: string;
   dayIndex: number;
   meal: 'lunch' | 'dinner';
-  recipe: AIRecipe;
-  matchedOffers: {
-    offerId: string;
-    offerName: string;
-    price: number;
-    store: string;
-  }[];
+  suggestion: MealSuggestion;
+  recipes: RecipeLink[];
+  matchedOffers: MatchedOffer[];
 }
 
-interface AIGeneratedMenu {
+interface GeneratedMenu {
   id?: string;
   name?: string;
-  items: AIMenuItem[];
+  items: MenuItem[];
   generatedAt: string;
-  model?: string;
+  mode?: MenuMode;
 }
 
 interface SavedMenu {
@@ -69,20 +64,25 @@ interface SavedMenu {
   is_active: boolean;
 }
 
+const SOURCE_BADGE: Record<string, { color: string; icon: string }> = {
+  'ICA': { color: 'bg-red-600', icon: '' },
+  'Tasteline': { color: 'bg-orange-500', icon: '' },
+  'Arla': { color: 'bg-blue-600', icon: '' },
+};
+
 export default function MenuPage() {
-  const [menu, setMenu] = useState<AIGeneratedMenu | null>(null);
+  const [menu, setMenu] = useState<GeneratedMenu | null>(null);
   const [savedMenus, setSavedMenus] = useState<SavedMenu[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [swapping, setSwapping] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRecipe, setSelectedRecipe] = useState<AIMenuItem | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [swapItem, setSwapItem] = useState<AIMenuItem | null>(null);
+  const [swapItem, setSwapItem] = useState<MenuItem | null>(null);
   const [swapReason, setSwapReason] = useState('');
   const [swapPreference, setSwapPreference] = useState('');
+  const [mode, setMode] = useState<MenuMode>('taste');
 
-  // Load saved menu on mount
   useEffect(() => {
     const loadMenu = async () => {
       try {
@@ -91,6 +91,7 @@ export default function MenuPage() {
           const data = await res.json();
           if (data.menu) {
             setMenu(data.menu);
+            if (data.menu.mode) setMode(data.menu.mode);
           }
         }
       } catch (e) {
@@ -102,7 +103,6 @@ export default function MenuPage() {
     loadMenu();
   }, []);
 
-  // Load menu history
   const loadHistory = async () => {
     try {
       const res = await fetch('/api/ai/menu?all=true');
@@ -123,6 +123,7 @@ export default function MenuPage() {
         const data = await res.json();
         if (data.menu) {
           setMenu(data.menu);
+          if (data.menu.mode) setMode(data.menu.mode);
         }
       }
     } catch (e) {
@@ -136,44 +137,36 @@ export default function MenuPage() {
   const generateMenu = async () => {
     setGenerating(true);
     setError(null);
-    
     try {
       const res = await fetch('/api/ai/menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate' }),
+        body: JSON.stringify({ action: 'generate', mode }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to generate menu');
       }
-
       const data = await res.json();
       setMenu(data.menu);
     } catch (e) {
-      console.error('Menu generation error:', e);
       setError(e instanceof Error ? e.message : 'Något gick fel');
     } finally {
       setGenerating(false);
     }
   };
 
-  // Open swap dialog
-  const openSwapDialog = (item: AIMenuItem) => {
+  const openSwapDialog = (item: MenuItem) => {
     setSwapItem(item);
     setSwapReason('');
     setSwapPreference('');
   };
 
-  // Execute swap with feedback
   const executeSwap = async () => {
     if (!swapItem) return;
-    
     const key = `${swapItem.dayIndex}-${swapItem.meal}`;
     setSwapping(key);
     setSwapItem(null);
-    
     try {
       const res = await fetch('/api/ai/menu', {
         method: 'POST',
@@ -183,34 +176,30 @@ export default function MenuPage() {
           currentMenu: menu,
           dayIndex: swapItem.dayIndex,
           meal: swapItem.meal,
+          mode,
           feedback: {
-            recipeName: swapItem.recipe.name,
+            recipeName: swapItem.suggestion.name,
             reason: swapReason,
             preference: swapPreference,
           },
         }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to swap meal');
       }
-
       const data = await res.json();
-      
       setMenu(prev => {
         if (!prev) return prev;
         return {
           ...prev,
-          items: prev.items.map(m => 
+          items: prev.items.map(m =>
             m.dayIndex === swapItem.dayIndex && m.meal === swapItem.meal
-              ? data.meal
-              : m
+              ? data.meal : m
           ),
         };
       });
     } catch (e) {
-      console.error('Swap error:', e);
       setError(e instanceof Error ? e.message : 'Kunde inte byta rätt');
     } finally {
       setSwapping(null);
@@ -218,277 +207,183 @@ export default function MenuPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
-      <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Din veckomeny</h1>
-          <p className="text-gray-600 mt-1 md:mt-2 text-sm md:text-base">
-            Recept skapade utifrån dina preferenser och veckans erbjudanden.
-          </p>
-          {menu?.name && (
-            <p className="text-xs md:text-sm text-green-600 mt-1">
-              📅 {menu.name} • Skapad {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant="outline"
-            onClick={() => {
-              loadHistory();
-              setShowHistory(true);
-            }}
-          >
-            📋 Tidigare menyer
-          </Button>
-          <Button 
-            onClick={generateMenu} 
-            disabled={generating}
-            size="lg"
-          >
-            {generating ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                Genererar...
-              </>
-            ) : (
-              <>🤖 {menu ? 'Ny meny' : 'Skapa veckomeny'}</>
+    <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Veckomeny</h1>
+            {menu?.name && (
+              <p className="text-sm text-gray-500 mt-1">
+                {menu.name} • {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
+              </p>
             )}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => { loadHistory(); setShowHistory(true); }}>
+            📋
           </Button>
         </div>
+
+        {/* Mode toggle */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setMode('taste')}
+            className={`p-3 rounded-xl border-2 transition-all text-left ${
+              mode === 'taste'
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <span className="text-lg">🍽️</span>
+            <span className="font-semibold ml-2 text-sm">Äta gott</span>
+            <p className="text-xs text-gray-500 mt-0.5">Smak i fokus, erbjudanden som bonus</p>
+          </button>
+          <button
+            onClick={() => setMode('budget')}
+            className={`p-3 rounded-xl border-2 transition-all text-left ${
+              mode === 'budget'
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <span className="text-lg">💰</span>
+            <span className="font-semibold ml-2 text-sm">Spara pengar</span>
+            <p className="text-xs text-gray-500 mt-0.5">Bygg menyn kring veckans deals</p>
+          </button>
+        </div>
+
+        <Button onClick={generateMenu} disabled={generating} className="mt-4 w-full sm:w-auto" size="lg">
+          {generating ? '⏳ Skapar meny...' : `🤖 ${menu ? 'Ny meny' : 'Skapa veckomeny'}`}
+        </Button>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           ❌ {error}
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading */}
       {(generating || loading) && (
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-6 w-48 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4 mt-2" />
-              </CardContent>
-            </Card>
+        <div className="space-y-6">
+          {generating && (
+            <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+              ✨ Söker recept från ICA, Tasteline och Arla...
+            </p>
+          )}
+          {[1, 2, 3].map(i => (
+            <div key={i}>
+              <Skeleton className="h-5 w-20 mb-3" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[1, 2, 3].map(j => (
+                  <Skeleton key={j} className="h-64 rounded-xl" />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty */}
       {!generating && !loading && !menu && (
-        <Card className="text-center py-12">
-          <CardContent>
-            <div className="text-6xl mb-4">🤖</div>
-            <h2 className="text-xl font-semibold mb-2">Ingen AI-meny genererad ännu</h2>
-            <p className="text-gray-500 mb-6">
-              Klicka på knappen för att låta AI skapa en veckomeny åt dig.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">🍽️</div>
+          <h2 className="text-xl font-semibold mb-2">Ingen veckomeny ännu</h2>
+          <p className="text-gray-500 text-sm">
+            Välj fokus och klicka &quot;Skapa veckomeny&quot; för att få recept från ICA, Tasteline och Arla.
+          </p>
+        </div>
       )}
 
-      {/* Menu cards */}
+      {/* Menu */}
       {!generating && !loading && menu && (
-        <div className="space-y-4">
+        <div className="space-y-8">
           {menu.items.map((item) => {
             const isSwapping = swapping === `${item.dayIndex}-${item.meal}`;
+            const hasRecipes = item.recipes?.length > 0;
+
             return (
-              <Card 
-                key={`${item.dayIndex}-${item.meal}`} 
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-green-600">{item.day}</p>
-                      <CardTitle className="text-lg md:text-xl mt-1">{item.recipe.name}</CardTitle>
-                      <p className="text-xs md:text-sm text-gray-500 mt-1 line-clamp-2 md:line-clamp-none">{item.recipe.description}</p>
-                    </div>
-                    <div className="flex gap-1 md:gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs">⏱️ {item.recipe.totalTime} min</Badge>
-                      <Badge variant="outline" className="text-xs">🍽️ {item.recipe.servings} port</Badge>
-                      <Badge variant="outline" className="text-xs hidden md:inline-flex">🔥 {item.recipe.nutrition.calories} kcal</Badge>
-                      <Badge variant="secondary" className="text-xs">{item.recipe.difficulty}</Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Matched offers */}
-                  {item.matchedOffers.length > 0 && (
-                    <div className="mb-3">
+              <div key={`${item.dayIndex}-${item.meal}`}>
+                {/* Day header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-bold text-green-700">{item.day}</h2>
+                    {item.matchedOffers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {item.matchedOffers.map((offer, i) => {
-                          // Shorten store name for mobile
                           const shortStore = offer.store
                             .replace('Supermarket ', '')
-                            .replace('ICA ', 'ICA ')
-                            .replace(', Sthlm', '')
-                            .replace('Östermalmstorg', 'Östermalm');
+                            .replace(', Sthlm', '');
                           return (
-                            <Badge key={i} className="bg-green-100 text-green-800 text-xs">
-                              <span className="hidden md:inline">🏷️ {offer.offerName} ({offer.store})</span>
-                              <span className="md:hidden">🏷️ {offer.offerName} ({shortStore})</span>
+                            <Badge key={i} className="bg-green-100 text-green-800 text-xs font-normal">
+                              🏷️ {offer.offerName} {offer.price} kr — {shortStore}
                             </Badge>
                           );
                         })}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {item.recipe.tags?.slice(0, 4).map((tag, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">{tag}</Badge>
-                    ))}
+                    )}
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-gray-500"
+                    onClick={() => openSwapDialog(item)}
+                    disabled={isSwapping}
+                  >
+                    {isSwapping ? '⏳' : '🔄 Byt'}
+                  </Button>
+                </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2 flex-wrap">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-xs md:text-sm"
-                      onClick={() => openSwapDialog(item)}
-                      disabled={isSwapping}
-                    >
-                      {isSwapping ? '⏳ Byter...' : '🔄 Byt rätt'}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="text-xs md:text-sm"
-                      onClick={() => setSelectedRecipe(item)}
-                    >
-                      📖 Visa recept
-                    </Button>
+                {/* Recipe cards — only show real results (not fallback "Sök..." links) */}
+                {hasRecipes ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {item.recipes
+                      .filter(r => r.imageUrl && !r.title.startsWith('Sök'))
+                      .map((recipe, i) => (
+                        <RecipeCard key={i} recipe={recipe} />
+                      ))}
+                    {/* If all were filtered out, show first available */}
+                    {item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök')).length === 0 &&
+                      item.recipes.slice(0, 1).map((recipe, i) => (
+                        <RecipeCard key={i} recipe={recipe} />
+                      ))
+                    }
                   </div>
-                </CardContent>
-              </Card>
+                ) : (
+                  <Card className="p-6 text-center text-gray-400 text-sm">
+                    Inga recept hittades
+                  </Card>
+                )}
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* Recipe detail dialog */}
-      <Dialog open={!!selectedRecipe} onOpenChange={() => setSelectedRecipe(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          {selectedRecipe && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedRecipe.recipe.name}</DialogTitle>
-                <DialogDescription>{selectedRecipe.recipe.description}</DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                {/* Meta info */}
-                <div className="flex gap-2 flex-wrap">
-                  <Badge>⏱️ {selectedRecipe.recipe.totalTime} min</Badge>
-                  <Badge>🍽️ {selectedRecipe.recipe.servings} portioner</Badge>
-                  <Badge variant="secondary">{selectedRecipe.recipe.difficulty}</Badge>
-                </div>
-
-                {/* Nutrition */}
-                <div className="grid grid-cols-4 gap-2 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.calories}</p>
-                    <p className="text-xs text-gray-500">kcal</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.protein}g</p>
-                    <p className="text-xs text-gray-500">protein</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.carbs}g</p>
-                    <p className="text-xs text-gray-500">kolhydrater</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold">{selectedRecipe.recipe.nutrition.fat}g</p>
-                    <p className="text-xs text-gray-500">fett</p>
-                  </div>
-                </div>
-
-                {/* Ingredients */}
-                <div>
-                  <h3 className="font-semibold mb-2">Ingredienser</h3>
-                  <ul className="space-y-1">
-                    {selectedRecipe.recipe.ingredients.map((ing, i) => (
-                      <li key={i} className="text-sm flex items-center gap-2">
-                        <span className={ing.isOffer ? 'text-green-600 font-medium' : ''}>
-                          {ing.amount} {ing.unit} {ing.item}
-                        </span>
-                        {ing.isOffer && (
-                          <Badge className="bg-green-100 text-green-800 text-xs">Erbjudande</Badge>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Instructions */}
-                <div>
-                  <h3 className="font-semibold mb-2">Instruktioner</h3>
-                  <ol className="list-decimal list-inside space-y-2">
-                    {selectedRecipe.recipe.instructions.map((step, i) => (
-                      <li key={i} className="text-sm">{step}</li>
-                    ))}
-                  </ol>
-                </div>
-
-                {/* Tips */}
-                {selectedRecipe.recipe.tips && (
-                  <div className="p-3 bg-yellow-50 rounded-lg">
-                    <p className="text-sm">
-                      <strong>💡 Tips:</strong> {selectedRecipe.recipe.tips}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Swap feedback dialog */}
+      {/* Swap dialog */}
       <Dialog open={!!swapItem} onOpenChange={() => setSwapItem(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Byt rätt</DialogTitle>
-            <DialogDescription>
-              Hjälp oss förbättra dina menyförslag genom att berätta vad du tänker.
-            </DialogDescription>
+            <DialogTitle>Byt rätt — {swapItem?.day}</DialogTitle>
+            <DialogDescription>Berätta vad du tänker så hittar vi något bättre.</DialogDescription>
           </DialogHeader>
-          
           {swapItem && (
             <div className="space-y-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium">{swapItem.recipe.name}</p>
-                <p className="text-sm text-gray-500">{swapItem.day}</p>
-              </div>
-              
               <div className="space-y-2">
-                <Label htmlFor="reason">Vad gillar du inte med denna rätt? (valfritt)</Label>
+                <Label htmlFor="reason">Vad gillar du inte? (valfritt)</Label>
                 <Textarea
                   id="reason"
-                  placeholder="T.ex. 'För kryddigt', 'Gillar inte fisk', 'Tar för lång tid'..."
+                  placeholder="T.ex. 'Gillar inte fisk', 'Tar för lång tid'..."
                   value={swapReason}
                   onChange={(e) => setSwapReason(e.target.value)}
                   rows={2}
                 />
               </div>
-              
               <div className="space-y-2">
-                <Label htmlFor="preference">Vad skulle du föredra istället? (valfritt)</Label>
+                <Label htmlFor="preference">Vad föredrar du? (valfritt)</Label>
                 <Textarea
                   id="preference"
-                  placeholder="T.ex. 'Något med kyckling', 'En vegetarisk rätt', 'Något snabbt'..."
+                  placeholder="T.ex. 'Något med kyckling', 'Vegetariskt'..."
                   value={swapPreference}
                   onChange={(e) => setSwapPreference(e.target.value)}
                   rows={2}
@@ -496,62 +391,87 @@ export default function MenuPage() {
               </div>
             </div>
           )}
-          
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setSwapItem(null)}>
-              Avbryt
-            </Button>
-            <Button onClick={executeSwap}>
-              🔄 Byt rätt
-            </Button>
+            <Button variant="outline" onClick={() => setSwapItem(null)}>Avbryt</Button>
+            <Button onClick={executeSwap}>🔄 Byt rätt</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Menu history dialog */}
+      {/* History dialog */}
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Tidigare menyer</DialogTitle>
-            <DialogDescription>Välj en tidigare meny att visa</DialogDescription>
           </DialogHeader>
-          
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {savedMenus.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">
-                Inga sparade menyer ännu
-              </p>
+              <p className="text-sm text-gray-500 text-center py-4">Inga sparade menyer</p>
             )}
-            {savedMenus.map((savedMenu) => (
+            {savedMenus.map((m) => (
               <button
-                key={savedMenu.id}
-                onClick={() => loadSpecificMenu(savedMenu.id)}
+                key={m.id}
+                onClick={() => loadSpecificMenu(m.id)}
                 className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  savedMenu.is_active 
-                    ? 'border-green-500 bg-green-50' 
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  m.is_active ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
                 }`}
               >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{savedMenu.name || 'Meny'}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(savedMenu.created_at).toLocaleDateString('sv-SE', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                  {savedMenu.is_active && (
-                    <Badge className="bg-green-100 text-green-800">Aktiv</Badge>
-                  )}
-                </div>
+                <p className="font-medium">{m.name || 'Meny'}</p>
+                <p className="text-sm text-gray-500">
+                  {new Date(m.created_at).toLocaleDateString('sv-SE', {
+                    day: 'numeric', month: 'long', year: 'numeric',
+                  })}
+                </p>
               </button>
             ))}
           </div>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Visual recipe card with image */
+function RecipeCard({ recipe }: { recipe: RecipeLink }) {
+  const badge = SOURCE_BADGE[recipe.source] || { color: 'bg-gray-600', icon: '' };
+
+  return (
+    <a
+      href={recipe.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all bg-white"
+    >
+      {/* Image */}
+      <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+        {recipe.imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={recipe.imageUrl}
+            alt={recipe.title}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-4xl text-gray-300">
+            🍽️
+          </div>
+        )}
+        {/* Source badge */}
+        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-xs font-medium ${badge.color}`}>
+          {recipe.source}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-3">
+        <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-green-700 transition-colors">
+          {recipe.title}
+        </h3>
+        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+          {recipe.description}
+        </p>
+      </div>
+    </a>
   );
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { generateAIMenu, regenerateAIMeal, AIMenuItem } from '@/lib/ai-menu-generator';
+import { generateMenu, regenerateMeal, MenuItemWithRecipes, MenuMode } from '@/lib/ai-meal-suggester';
 
 /**
  * GET: Load saved menu(s)
@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     const all = searchParams.get('all') === 'true';
 
     if (menuId) {
-      // Get specific menu
       const { data: menu, error } = await supabase
         .from('menus')
         .select('*, menu_items(*)')
@@ -38,7 +37,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (all) {
-      // Get all menus (without items for list view)
       const { data: menus } = await supabase
         .from('menus')
         .select('id, name, created_at, is_active')
@@ -133,16 +131,16 @@ export async function POST(request: NextRequest) {
     }));
 
     if (action === 'generate') {
-      // Generate new menu
-      const menu = await generateAIMenu(preferences, formattedOffers);
-      
+      const mode: MenuMode = body.mode === 'budget' ? 'budget' : 'taste';
+      const menu = await generateMenu(preferences, formattedOffers, mode);
+
       // Deactivate old menus
       await supabase
         .from('menus')
         .update({ is_active: false })
         .eq('user_id', user.id);
 
-      // Save new menu to database
+      // Save new menu
       const weekNumber = getWeekNumber(new Date());
       const { data: savedMenu, error: menuError } = await supabase
         .from('menus')
@@ -156,23 +154,27 @@ export async function POST(request: NextRequest) {
 
       if (menuError || !savedMenu) {
         console.error('Error saving menu:', menuError);
-        // Still return the menu even if save fails
         return NextResponse.json({ menu });
       }
 
-      // Save menu items
-      const menuItems = menu.items.map((item: AIMenuItem) => ({
+      // Save menu items — store suggestion + recipes in the existing recipe JSON column
+      const menuItems = menu.items.map((item: MenuItemWithRecipes) => ({
         menu_id: savedMenu.id,
         day_index: item.dayIndex,
         day_name: item.day,
         meal: item.meal,
-        recipe: item.recipe,
+        recipe: {
+          _version: 2,
+          mode,
+          suggestion: item.suggestion,
+          recipeLinks: item.recipes,
+        },
         matched_offers: item.matchedOffers,
       }));
 
       await supabase.from('menu_items').insert(menuItems);
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         menu: {
           ...menu,
           id: savedMenu.id,
@@ -182,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'swap') {
       const { currentMenu, dayIndex, meal, feedback } = body;
-      
+
       if (!currentMenu || dayIndex === undefined || !meal) {
         return NextResponse.json(
           { error: 'Missing required parameters' },
@@ -190,7 +192,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Save feedback if provided
+      // Save feedback
       if (feedback && (feedback.reason || feedback.preference)) {
         await supabase.from('user_feedback').insert({
           user_id: user.id,
@@ -202,7 +204,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Load user's previous feedback for better suggestions
+      // Load feedback history
       const { data: userFeedback } = await supabase
         .from('user_feedback')
         .select('reason, preference, tags')
@@ -215,31 +217,42 @@ export async function POST(request: NextRequest) {
         preference: f.preference,
       })).filter(f => f.reason || f.preference) || [];
 
-      const existingNames = currentMenu.items?.map((i: { recipe: { name: string } }) => i.recipe.name) || [];
-      
-      const newMeal = await regenerateAIMeal(
+      const existingNames = currentMenu.items?.map(
+        (i: { suggestion?: { name: string }; recipe?: { name: string } }) =>
+          i.suggestion?.name || i.recipe?.name || ''
+      ).filter(Boolean) || [];
+
+      const swapMode: MenuMode = currentMenu.mode || body.mode || 'taste';
+
+      const newMeal = await regenerateMeal(
         dayIndex,
         meal,
         preferences,
         formattedOffers,
         existingNames,
+        swapMode,
         feedback?.preference || null,
         feedbackContext
       );
 
       if (!newMeal) {
         return NextResponse.json(
-          { error: 'Could not generate new recipe' },
+          { error: 'Could not generate new meal suggestion' },
           { status: 500 }
         );
       }
 
-      // Update in database if menu has an ID
+      // Update in database
       if (currentMenu.id) {
         await supabase
           .from('menu_items')
           .update({
-            recipe: newMeal.recipe,
+            recipe: {
+              _version: 2,
+              mode: swapMode,
+              suggestion: newMeal.suggestion,
+              recipeLinks: newMeal.recipes,
+            },
             matched_offers: newMeal.matchedOffers,
           })
           .eq('menu_id', currentMenu.id)
@@ -260,14 +273,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Extract keywords from feedback for learning
- */
 function extractFeedbackTags(reason?: string, preference?: string): string[] {
   const tags: string[] = [];
   const text = `${reason || ''} ${preference || ''}`.toLowerCase();
-  
-  // Common food preferences/dislikes
   const keywords = [
     'kyckling', 'fisk', 'kött', 'vegetariskt', 'veganskt',
     'kryddigt', 'milt', 'sött', 'salt',
@@ -276,18 +284,14 @@ function extractFeedbackTags(reason?: string, preference?: string): string[] {
     'soppa', 'gryta', 'wok', 'ugn',
     'barn', 'familj',
   ];
-  
   for (const keyword of keywords) {
-    if (text.includes(keyword)) {
-      tags.push(keyword);
-    }
+    if (text.includes(keyword)) tags.push(keyword);
   }
-  
   return tags;
 }
 
 /**
- * Format menu from database format to API format
+ * Format menu from DB — handles both v1 (full recipe) and v2 (suggestion + links) formats
  */
 function formatMenuFromDb(dbMenu: {
   id: string;
@@ -298,30 +302,58 @@ function formatMenuFromDb(dbMenu: {
     day_index: number;
     day_name: string;
     meal: string;
-    recipe: unknown;
+    recipe: Record<string, unknown>;
     matched_offers: unknown;
   }[];
 }) {
+  // Detect mode from first v2 item
+  const firstV2 = dbMenu.menu_items?.find(i => (i.recipe as Record<string, unknown>)?._version === 2);
+  const mode = (firstV2?.recipe as Record<string, unknown>)?.mode || 'taste';
+
   return {
     id: dbMenu.id,
     name: dbMenu.name,
     generatedAt: dbMenu.created_at,
     isActive: dbMenu.is_active,
+    mode,
     items: (dbMenu.menu_items || [])
       .sort((a, b) => a.day_index - b.day_index)
-      .map(item => ({
-        day: item.day_name,
-        dayIndex: item.day_index,
-        meal: item.meal,
-        recipe: item.recipe,
-        matchedOffers: item.matched_offers || [],
-      })),
+      .map(item => {
+        const recipe = item.recipe as Record<string, unknown>;
+        const isV2 = recipe?._version === 2;
+
+        if (isV2) {
+          // New format: suggestion + recipe links
+          return {
+            day: item.day_name,
+            dayIndex: item.day_index,
+            meal: item.meal,
+            suggestion: recipe.suggestion,
+            recipes: recipe.recipeLinks || [],
+            matchedOffers: item.matched_offers || [],
+          };
+        }
+
+        // Legacy v1 format: full AI recipe — adapt to new structure
+        return {
+          day: item.day_name,
+          dayIndex: item.day_index,
+          meal: item.meal,
+          suggestion: {
+            name: (recipe as { name?: string }).name || 'Okänd rätt',
+            description: (recipe as { description?: string }).description || '',
+            tags: (recipe as { tags?: string[] }).tags || [],
+            usesOffers: [],
+          },
+          recipes: [], // No recipe links for legacy menus
+          matchedOffers: item.matched_offers || [],
+          // Keep legacy recipe for backward compat
+          legacyRecipe: recipe,
+        };
+      }),
   };
 }
 
-/**
- * Get ISO week number
- */
 function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
