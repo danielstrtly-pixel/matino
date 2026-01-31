@@ -334,12 +334,20 @@ export default function MenuPage() {
                   </Button>
                 </div>
 
-                {/* Recipe cards */}
+                {/* Recipe cards — only show real results (not fallback "Sök..." links) */}
                 {hasRecipes ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {item.recipes.map((recipe, i) => (
-                      <RecipeCard key={i} recipe={recipe} />
-                    ))}
+                    {item.recipes
+                      .filter(r => r.imageUrl && !r.title.startsWith('Sök'))
+                      .map((recipe, i) => (
+                        <RecipeCard key={i} recipe={recipe} />
+                      ))}
+                    {/* If all were filtered out, show first available */}
+                    {item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök')).length === 0 &&
+                      item.recipes.slice(0, 1).map((recipe, i) => (
+                        <RecipeCard key={i} recipe={recipe} />
+                      ))
+                    }
                   </div>
                 ) : (
                   <Card className="p-6 text-center text-gray-400 text-sm">
