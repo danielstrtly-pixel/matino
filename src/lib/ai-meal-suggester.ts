@@ -432,22 +432,20 @@ function matchOffersToMeal(
     );
     if (!offer || matched.find(m => m.offerId === offer.id)) continue;
 
-    // Sanity check: does the offer keyword actually appear in the meal?
-    // Extract the main food word from the offer (skip generic words like "färsk", "svensk")
-    const offerWords = offer.name.toLowerCase()
-      .replace(/färsk[a]?|svensk[a]?|ekologisk[a]?|på burk|i bit/g, '')
-      .trim()
-      .split(/\s+/)
-      .filter(w => w.length >= 3);
+    // Sanity check ONLY for proteins — these are the main mismatches
+    // (e.g., AI claims "kycklingfilé" for a flankstek dish)
+    // For non-protein offers (tomater, grädde, pasta etc.) we trust the AI.
+    const PROTEINS = ['kyckling', 'köttfärs', 'fläsk', 'nöt', 'lax', 'torsk', 'räk', 'lamm', 'vilt', 'anka', 'kalkon', 'högrev', 'entrecote', 'flank', 'fisk', 'räkor'];
+    const offerLower = offer.name.toLowerCase();
+    const isProteinOffer = PROTEINS.some(p => offerLower.includes(p));
 
-    // Also extract root words (e.g., "kycklingfilé" → "kyckling", "köttfärslimpa" → "köttfärs")
-    const ROOTS = ['kyckling', 'köttfärs', 'fläsk', 'nöt', 'lax', 'torsk', 'potatis', 'tomat', 'pasta', 'bacon', 'korv'];
-    const offerRoots = offerWords.flatMap(w => {
-      const root = ROOTS.find(r => w.startsWith(r));
-      return root && root !== w ? [w, root] : [w];
-    });
-
-    const isRelevant = offerRoots.some(w => mealText.includes(w));
+    let isRelevant = true;
+    if (isProteinOffer) {
+      // Verify the protein actually appears in the meal
+      isRelevant = PROTEINS
+        .filter(p => offerLower.includes(p))
+        .some(p => mealText.includes(p));
+    }
     if (isRelevant) {
       matched.push({
         offerId: offer.id,
