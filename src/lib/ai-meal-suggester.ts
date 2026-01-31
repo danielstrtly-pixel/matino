@@ -155,6 +155,41 @@ export async function regenerateMeal(
   }
 }
 
+// ─── Helpers ─────────────────────────────────────────────────
+
+/**
+ * Pick a balanced sample of offers across all chains
+ * Instead of just taking first N (which biases toward one store),
+ * round-robin across chains to get variety.
+ */
+function balancedOfferSample(offers: Offer[], maxTotal: number): Offer[] {
+  // Group by chain
+  const byChain = new Map<string, Offer[]>();
+  for (const o of offers) {
+    const key = o.chain_id || o.store_name;
+    if (!byChain.has(key)) byChain.set(key, []);
+    byChain.get(key)!.push(o);
+  }
+
+  const chains = Array.from(byChain.values());
+  const result: Offer[] = [];
+  let round = 0;
+
+  while (result.length < maxTotal) {
+    let added = false;
+    for (const chainOffers of chains) {
+      if (round < chainOffers.length && result.length < maxTotal) {
+        result.push(chainOffers[round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+    round++;
+  }
+
+  return result;
+}
+
 // ─── AI Prompts ──────────────────────────────────────────────
 
 function buildProfileContext(preferences: UserPreferences): string {
@@ -195,7 +230,8 @@ async function suggestMeals(
   mode: MenuMode
 ): Promise<MealSuggestion[]> {
   const profileContext = buildProfileContext(preferences);
-  const offersSummary = offers.slice(0, 30).map(o =>
+  const sampledOffers = balancedOfferSample(offers, 40);
+  const offersSummary = sampledOffers.map(o =>
     `- ${o.name} (${o.offer_price} kr, ${o.store_name})`
   ).join('\n');
 
@@ -294,8 +330,9 @@ async function suggestOneMeal(
   userPreference?: string | null,
   feedbackHistory?: { reason?: string; preference?: string }[]
 ): Promise<MealSuggestion | null> {
-  const offersSummary = offers.slice(0, 15).map(o =>
-    `- ${o.name} (${o.offer_price} kr)`
+  const sampledOffers = balancedOfferSample(offers, 20);
+  const offersSummary = sampledOffers.map(o =>
+    `- ${o.name} (${o.offer_price} kr, ${o.store_name})`
   ).join('\n');
 
   let feedbackContext = '';
