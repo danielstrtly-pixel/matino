@@ -1,0 +1,88 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { chat } from '@/lib/openrouter';
+
+const SYSTEM_PROMPT = `Du är SmartaMenyns matexpert. Du intervjuar användaren för att förstå deras matvanor och preferenser så att du kan skapa den perfekta veckomenyn.
+
+REGLER:
+- Var varm, nyfiken och personlig. Inte klinisk.
+- Ställ EN fråga i taget, max 2-3 meningar per meddelande.
+- Använd emoji sparsamt men naturligt.
+- Håll konversationen kort – max 6-7 frågor totalt.
+- Anpassa följdfrågor baserat på svaren.
+
+FRÅGOR ATT TÄCKA (i ungefärlig ordning):
+1. Hur många är ni i hushållet?
+2. Berätta om en vanlig matvecka – vad brukar ni äta? (viktigast!)
+3. Är det något ni vill förändra? Mer variation, nyttigare, snabbare?
+4. Allergier eller saker ni absolut vill undvika?
+5. Finns det dagar ni vill ha lite lyxigare mat? (fredag, helg?)
+6. Dagar då det måste gå snabbt?
+
+NÄR ALLA FRÅGOR ÄR BESVARADE:
+Skriv en sammanfattning i detta EXAKTA format:
+
+---SAMMANFATTNING---
+[Skriv en naturlig sammanfattning av vad du lärt dig, i 2:a person]
+---PROFIL---
+[Skriv en detaljerad profil i JSON-format som kan användas för att generera menyer:]
+{
+  "householdSize": <antal>,
+  "currentHabits": "<vad de brukar äta>",
+  "wantedChanges": "<vad de vill ändra>",
+  "restrictions": ["<allergier/undvikanden>"],
+  "luxuryDays": "<vilka dagar>",
+  "quickDays": "<vilka dagar>",
+  "preferences": "<fri text med all viktig info>",
+  "menuPrompt": "<en komplett prompt som kan användas för att generera den perfekta menyn för denna familj>"
+}
+---SLUT---
+
+Fråga sedan: "Stämmer det här? Vill du ändra något?"`;
+
+export async function POST(request: Request) {
+  try {
+    // Verify user is authenticated
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const { messages } = await request.json();
+
+    if (!messages || !Array.isArray(messages)) {
+      return NextResponse.json({ error: 'Messages required' }, { status: 400 });
+    }
+
+    // Build conversation with system prompt
+    const fullMessages = [
+      { role: 'system' as const, content: SYSTEM_PROMPT },
+      ...messages.map((m: { role: string; content: string }) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ];
+
+    const response = await chat(fullMessages, {
+      model: 'google/gemini-2.0-flash-001',
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    // Check if this response contains a summary
+    const hasSummary = response.includes('---SAMMANFATTNING---');
+
+    return NextResponse.json({ 
+      message: response,
+      hasSummary,
+    });
+  } catch (error) {
+    console.error('Interview error:', error);
+    return NextResponse.json(
+      { error: 'Failed to process interview' },
+      { status: 500 }
+    );
+  }
+}

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
+import { InterviewChat } from "@/components/InterviewChat";
 
 // Simplified dietary restrictions
 const DIETARY_OPTIONS = [
@@ -43,6 +44,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [interviewOpen, setInterviewOpen] = useState(false);
 
   // Load preferences on mount
   useEffect(() => {
@@ -149,6 +151,36 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Interview CTA */}
+      <Card className="mb-6 bg-gradient-to-r from-fresh to-fresh/80 text-white border-0 rounded-2xl">
+        <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-center gap-4 md:gap-8">
+          <div className="flex-1 text-center md:text-left">
+            <h3 className="text-xl font-bold mb-2">🎙️ Berätta vad du gillar att äta</h3>
+            <p className="text-white/80 text-sm">
+              Svara på några frågor så skapar vi den perfekta menyn för just ditt hushåll. 
+              Tar ca 2 minuter.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            className="bg-white text-fresh hover:bg-cream-light rounded-full px-8 py-6 font-semibold shadow-lg whitespace-nowrap"
+            onClick={() => setInterviewOpen(true)}
+          >
+            Starta intervju
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Interview dialog */}
+      <InterviewChat
+        open={interviewOpen}
+        onClose={() => setInterviewOpen(false)}
+        onSaved={() => {
+          setSaveMessage("✅ Matprofil sparad!");
+          setTimeout(() => setSaveMessage(null), 3000);
+        }}
+      />
 
       {/* Two-column layout on desktop */}
       <div className="grid lg:grid-cols-2 gap-6">
