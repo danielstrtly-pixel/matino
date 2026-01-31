@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 type MenuMode = 'taste' | 'budget';
 
@@ -23,6 +24,7 @@ interface RecipeLink {
   url: string;
   description: string;
   source: string;
+  imageUrl?: string;
 }
 
 interface MealSuggestion {
@@ -54,7 +56,6 @@ interface GeneratedMenu {
   name?: string;
   items: MenuItem[];
   generatedAt: string;
-  model?: string;
   mode?: MenuMode;
 }
 
@@ -65,16 +66,10 @@ interface SavedMenu {
   is_active: boolean;
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  'ICA': 'bg-red-50 border-red-200 text-red-900 hover:bg-red-100',
-  'Tasteline': 'bg-orange-50 border-orange-200 text-orange-900 hover:bg-orange-100',
-  'Arla': 'bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100',
-};
-
-const SOURCE_ICONS: Record<string, string> = {
-  'ICA': '🔴',
-  'Tasteline': '🟠',
-  'Arla': '🔵',
+const SOURCE_BADGE: Record<string, { color: string; icon: string }> = {
+  'ICA': { color: 'bg-red-600', icon: '' },
+  'Tasteline': { color: 'bg-orange-500', icon: '' },
+  'Arla': { color: 'bg-blue-600', icon: '' },
 };
 
 export default function MenuPage() {
@@ -88,7 +83,6 @@ export default function MenuPage() {
   const [swapItem, setSwapItem] = useState<MenuItem | null>(null);
   const [swapReason, setSwapReason] = useState('');
   const [swapPreference, setSwapPreference] = useState('');
-  const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [mode, setMode] = useState<MenuMode>('taste');
 
   useEffect(() => {
@@ -145,23 +139,19 @@ export default function MenuPage() {
   const generateMenu = async () => {
     setGenerating(true);
     setError(null);
-
     try {
       const res = await fetch('/api/ai/menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate', mode }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to generate menu');
       }
-
       const data = await res.json();
       setMenu(data.menu);
     } catch (e) {
-      console.error('Menu generation error:', e);
       setError(e instanceof Error ? e.message : 'Något gick fel');
     } finally {
       setGenerating(false);
@@ -179,7 +169,6 @@ export default function MenuPage() {
     const key = `${swapItem.dayIndex}-${swapItem.meal}`;
     setSwapping(key);
     setSwapItem(null);
-
     try {
       const res = await fetch('/api/ai/menu', {
         method: 'POST',
@@ -197,12 +186,10 @@ export default function MenuPage() {
           },
         }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to swap meal');
       }
-
       const data = await res.json();
       setMenu(prev => {
         if (!prev) return prev;
@@ -210,268 +197,153 @@ export default function MenuPage() {
           ...prev,
           items: prev.items.map(m =>
             m.dayIndex === swapItem.dayIndex && m.meal === swapItem.meal
-              ? data.meal
-              : m
+              ? data.meal : m
           ),
         };
       });
     } catch (e) {
-      console.error('Swap error:', e);
       setError(e instanceof Error ? e.message : 'Kunde inte byta rätt');
     } finally {
       setSwapping(null);
     }
   };
 
-  const toggleExpand = (dayIndex: number) => {
-    setExpandedDay(prev => prev === dayIndex ? null : dayIndex);
-  };
-
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
+    <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
       {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+      <div className="mb-6">
+        <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Din veckomeny</h1>
-            <p className="text-gray-600 mt-1 text-sm md:text-base">
-              Välj fokus och generera en meny anpassad efter dig.
-            </p>
+            <h1 className="text-2xl md:text-3xl font-bold">Veckomeny</h1>
             {menu?.name && (
-              <p className="text-xs md:text-sm text-green-600 mt-1">
-                📅 {menu.name} • Skapad {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
-                {menu.mode && (
-                  <span className="ml-2">
-                    {menu.mode === 'taste' ? '• 🍽️ Smak-fokus' : '• 💰 Budget-fokus'}
-                  </span>
-                )}
+              <p className="text-sm text-gray-500 mt-1">
+                {menu.name} • {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
               </p>
             )}
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              onClick={() => { loadHistory(); setShowHistory(true); }}
-            >
-              📋 Historik
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => { loadHistory(); setShowHistory(true); }}>
+            📋
+          </Button>
         </div>
 
         {/* Mode toggle */}
-        <div className="mt-4 flex flex-col sm:flex-row gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             onClick={() => setMode('taste')}
-            className={`flex-1 p-4 rounded-xl border-2 transition-all text-left ${
+            className={`p-3 rounded-xl border-2 transition-all text-left ${
               mode === 'taste'
-                ? 'border-green-500 bg-green-50 shadow-sm'
-                : 'border-gray-200 hover:border-gray-300 bg-white'
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">🍽️</span>
-              <span className="font-semibold">Jag vill äta gott</span>
-            </div>
-            <p className="text-xs text-gray-500">
-              Attraktiva rätter utifrån din smak. Erbjudanden visas som bonus.
-            </p>
+            <span className="text-lg">🍽️</span>
+            <span className="font-semibold ml-2 text-sm">Äta gott</span>
+            <p className="text-xs text-gray-500 mt-0.5">Smak i fokus, erbjudanden som bonus</p>
           </button>
           <button
             onClick={() => setMode('budget')}
-            className={`flex-1 p-4 rounded-xl border-2 transition-all text-left ${
+            className={`p-3 rounded-xl border-2 transition-all text-left ${
               mode === 'budget'
-                ? 'border-green-500 bg-green-50 shadow-sm'
-                : 'border-gray-200 hover:border-gray-300 bg-white'
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">💰</span>
-              <span className="font-semibold">Jag vill spara pengar</span>
-            </div>
-            <p className="text-xs text-gray-500">
-              Meny byggd kring veckans erbjudanden. Fortfarande gott!
-            </p>
+            <span className="text-lg">💰</span>
+            <span className="font-semibold ml-2 text-sm">Spara pengar</span>
+            <p className="text-xs text-gray-500 mt-0.5">Bygg menyn kring veckans deals</p>
           </button>
         </div>
 
-        {/* Generate button */}
-        <div className="mt-4">
-          <Button
-            onClick={generateMenu}
-            disabled={generating}
-            size="lg"
-            className="w-full sm:w-auto"
-          >
-            {generating ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                Skapar meny...
-              </>
-            ) : (
-              <>🤖 {menu ? 'Ny meny' : 'Skapa veckomeny'}</>
-            )}
-          </Button>
-        </div>
+        <Button onClick={generateMenu} disabled={generating} className="mt-4 w-full sm:w-auto" size="lg">
+          {generating ? '⏳ Skapar meny...' : `🤖 ${menu ? 'Ny meny' : 'Skapa veckomeny'}`}
+        </Button>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           ❌ {error}
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading */}
       {(generating || loading) && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {generating && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-              ✨ Söker recept från ICA, Tasteline och Arla... Detta tar ca 10 sekunder.
-            </div>
+            <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+              ✨ Söker recept från ICA, Tasteline och Arla...
+            </p>
           )}
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-6 w-48 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4 mt-2" />
-              </CardContent>
-            </Card>
+          {[1, 2, 3].map(i => (
+            <div key={i}>
+              <Skeleton className="h-5 w-20 mb-3" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[1, 2, 3].map(j => (
+                  <Skeleton key={j} className="h-64 rounded-xl" />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty */}
       {!generating && !loading && !menu && (
-        <Card className="text-center py-12">
-          <CardContent>
-            <div className="text-6xl mb-4">🍽️</div>
-            <h2 className="text-xl font-semibold mb-2">Ingen veckomeny ännu</h2>
-            <p className="text-gray-500 mb-2">
-              Välj fokus ovan och klicka &quot;Skapa veckomeny&quot;.
-            </p>
-            <p className="text-gray-400 text-sm">
-              Vi hittar recept från ICA, Tasteline och Arla åt dig.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">🍽️</div>
+          <h2 className="text-xl font-semibold mb-2">Ingen veckomeny ännu</h2>
+          <p className="text-gray-500 text-sm">
+            Välj fokus och klicka &quot;Skapa veckomeny&quot; för att få recept från ICA, Tasteline och Arla.
+          </p>
+        </div>
       )}
 
-      {/* Menu cards */}
+      {/* Menu */}
       {!generating && !loading && menu && (
-        <div className="space-y-4">
+        <div className="space-y-8">
           {menu.items.map((item) => {
             const isSwapping = swapping === `${item.dayIndex}-${item.meal}`;
-            const isExpanded = expandedDay === item.dayIndex;
-            const hasRecipes = item.recipes && item.recipes.length > 0;
+            const hasRecipes = item.recipes?.length > 0;
 
             return (
-              <Card
-                key={`${item.dayIndex}-${item.meal}`}
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-green-600">{item.day}</p>
-                      <CardTitle className="text-lg md:text-xl mt-1">
-                        {item.suggestion.name}
-                      </CardTitle>
-                      <p className="text-xs md:text-sm text-gray-500 mt-1">
-                        {item.suggestion.description}
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Matched offers */}
-                  {item.matchedOffers.length > 0 && (
-                    <div className="mb-3">
+              <div key={`${item.dayIndex}-${item.meal}`}>
+                {/* Day header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-bold text-green-700">{item.day}</h2>
+                    {item.matchedOffers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {item.matchedOffers.map((offer, i) => {
-                          const shortStore = offer.store
-                            .replace('Supermarket ', '')
-                            .replace(', Sthlm', '');
-                          return (
-                            <Badge key={i} className="bg-green-100 text-green-800 text-xs">
-                              🏷️ {offer.offerName} ({offer.price} kr, {shortStore})
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {item.suggestion.tags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {item.suggestion.tags.slice(0, 5).map((tag, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Recipe links — always visible on desktop, toggle on mobile */}
-                  {hasRecipes && (
-                    <div className={`mb-3 ${isExpanded ? '' : 'hidden md:block'}`}>
-                      <p className="text-xs font-medium text-gray-500 mb-2">📖 Välj recept:</p>
-                      <div className="grid gap-2 md:grid-cols-3">
-                        {item.recipes.map((recipe, i) => (
-                          <a
-                            key={i}
-                            href={recipe.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`block p-3 rounded-lg border transition-colors ${
-                              SOURCE_COLORS[recipe.source] || 'bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="text-sm shrink-0">
-                                {SOURCE_ICONS[recipe.source] || '📄'}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm leading-tight line-clamp-2">
-                                  {recipe.title}
-                                </p>
-                                <p className="text-xs mt-1 opacity-60">
-                                  {recipe.source}
-                                </p>
-                              </div>
-                              <span className="text-xs opacity-40 shrink-0">↗</span>
-                            </div>
-                          </a>
+                        {item.matchedOffers.map((offer, i) => (
+                          <Badge key={i} className="bg-green-100 text-green-800 text-xs font-normal">
+                            🏷️ {offer.offerName} {offer.price} kr
+                          </Badge>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 flex-wrap">
-                    {hasRecipes && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs md:hidden"
-                        onClick={() => toggleExpand(item.dayIndex)}
-                      >
-                        {isExpanded ? '📖 Dölj recept' : `📖 Visa recept (${item.recipes.length})`}
-                      </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs md:text-sm"
-                      onClick={() => openSwapDialog(item)}
-                      disabled={isSwapping}
-                    >
-                      {isSwapping ? '⏳ Byter...' : '🔄 Byt rätt'}
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-gray-500"
+                    onClick={() => openSwapDialog(item)}
+                    disabled={isSwapping}
+                  >
+                    {isSwapping ? '⏳' : '🔄 Byt'}
+                  </Button>
+                </div>
+
+                {/* Recipe cards */}
+                {hasRecipes ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {item.recipes.map((recipe, i) => (
+                      <RecipeCard key={i} recipe={recipe} />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-6 text-center text-gray-400 text-sm">
+                    Inga recept hittades
+                  </Card>
+                )}
+              </div>
             );
           })}
         </div>
@@ -481,17 +353,11 @@ export default function MenuPage() {
       <Dialog open={!!swapItem} onOpenChange={() => setSwapItem(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Byt rätt</DialogTitle>
-            <DialogDescription>
-              Berätta vad du tänker så föreslår vi något bättre.
-            </DialogDescription>
+            <DialogTitle>Byt rätt — {swapItem?.day}</DialogTitle>
+            <DialogDescription>Berätta vad du tänker så hittar vi något bättre.</DialogDescription>
           </DialogHeader>
           {swapItem && (
             <div className="space-y-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium">{swapItem.suggestion.name}</p>
-                <p className="text-sm text-gray-500">{swapItem.day}</p>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="reason">Vad gillar du inte? (valfritt)</Label>
                 <Textarea
@@ -506,7 +372,7 @@ export default function MenuPage() {
                 <Label htmlFor="preference">Vad föredrar du? (valfritt)</Label>
                 <Textarea
                   id="preference"
-                  placeholder="T.ex. 'Något med kyckling', 'Vegetariskt', 'Snabbt'..."
+                  placeholder="T.ex. 'Något med kyckling', 'Vegetariskt'..."
                   value={swapPreference}
                   onChange={(e) => setSwapPreference(e.target.value)}
                   rows={2}
@@ -526,40 +392,76 @@ export default function MenuPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Tidigare menyer</DialogTitle>
-            <DialogDescription>Välj en tidigare meny att visa</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {savedMenus.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">Inga sparade menyer ännu</p>
+              <p className="text-sm text-gray-500 text-center py-4">Inga sparade menyer</p>
             )}
-            {savedMenus.map((savedMenu) => (
+            {savedMenus.map((m) => (
               <button
-                key={savedMenu.id}
-                onClick={() => loadSpecificMenu(savedMenu.id)}
+                key={m.id}
+                onClick={() => loadSpecificMenu(m.id)}
                 className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  savedMenu.is_active
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  m.is_active ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
                 }`}
               >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{savedMenu.name || 'Meny'}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(savedMenu.created_at).toLocaleDateString('sv-SE', {
-                        day: 'numeric', month: 'long', year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                  {savedMenu.is_active && (
-                    <Badge className="bg-green-100 text-green-800">Aktiv</Badge>
-                  )}
-                </div>
+                <p className="font-medium">{m.name || 'Meny'}</p>
+                <p className="text-sm text-gray-500">
+                  {new Date(m.created_at).toLocaleDateString('sv-SE', {
+                    day: 'numeric', month: 'long', year: 'numeric',
+                  })}
+                </p>
               </button>
             ))}
           </div>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Visual recipe card with image */
+function RecipeCard({ recipe }: { recipe: RecipeLink }) {
+  const badge = SOURCE_BADGE[recipe.source] || { color: 'bg-gray-600', icon: '' };
+
+  return (
+    <a
+      href={recipe.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all bg-white"
+    >
+      {/* Image */}
+      <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+        {recipe.imageUrl ? (
+          <Image
+            src={recipe.imageUrl}
+            alt={recipe.title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 100vw, 33vw"
+            unoptimized
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-4xl text-gray-300">
+            🍽️
+          </div>
+        )}
+        {/* Source badge */}
+        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-xs font-medium ${badge.color}`}>
+          {recipe.source}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-3">
+        <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-green-700 transition-colors">
+          {recipe.title}
+        </h3>
+        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+          {recipe.description}
+        </p>
+      </div>
+    </a>
   );
 }

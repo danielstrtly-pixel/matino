@@ -8,6 +8,7 @@ export interface RecipeLink {
   url: string;
   description: string;
   source: string; // e.g. "ICA", "Tasteline", "Arla"
+  imageUrl?: string; // recipe photo from the site
 }
 
 export interface RecipeSearchResult {
@@ -87,6 +88,7 @@ export async function searchRecipes(
         url: item.url,
         description: stripHtml(item.description || ''),
         source: source.name,
+        imageUrl: item.thumbnail?.original || item.thumbnail?.src || undefined,
       });
 
       // Stop once we have one per source
