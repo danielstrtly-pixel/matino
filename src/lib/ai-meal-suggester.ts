@@ -296,11 +296,12 @@ ${offers || 'Inga erbjudanden tillgängliga'}
 REGLER:
 1. Välj rätter som är POPULÄRA och BEPRÖVADE — rätter folk faktiskt lagar hemma
 2. VARIATION: olika proteinkällor (kyckling, fisk, köttfärs, fläsk, vegetariskt), tillagning och kulturer
-3. Fredagar = fredagsmys (tacos, pizza, hamburgare, fish & chips)
-4. "searchQuery" ska vara KORT och generiskt (2-3 ord max) för att hitta recept:
-   - BRA: "kycklinggryta curry", "laxpasta", "köttfärssås"
+3. FREDAG = FREDAGSMYS! Välj ALLTID något av: tacos, pizza, hamburgare, fish & chips, nachos, wraps. ALDRIG stek eller fint till fredagsmys.
+4. Försök använda minst 1 erbjudande per rätt. Om ingen erbjudande passar, välj ändå en god rätt.
+5. "searchQuery" ska vara KORT och generiskt (2-3 ord max) för att hitta recept:
+   - BRA: "kycklinggryta curry", "laxpasta", "köttfärssås", "tacos"
    - DÅLIGT: "krämig kycklinggryta med soltorkade tomater och parmesan"
-5. "usesOffers" — lista ingredienser som MATCHAR erbjudanden (om några)
+6. "usesOffers" — lista BARA ingredienser som FAKTISKT ingår i rätten OCH finns bland erbjudandena. Ljug inte!
 
 Svara i JSON:
 {
@@ -325,14 +326,14 @@ VECKANS ERBJUDANDEN (BYGG MENYN KRING DESSA):
 ${offers || 'Inga erbjudanden tillgängliga — föreslå billiga vardagsrätter istället'}
 
 REGLER:
-1. VARJE rätt ska använda minst 1-2 erbjudanden som huvudingrediens
+1. VARJE rätt MÅSTE använda minst 1-2 erbjudanden som huvudingrediens
 2. Välj fortfarande rätter som är GODA och populära — billigt behöver inte vara tråkigt
 3. VARIATION: använd olika erbjudanden, inte samma protein varje dag
-4. "searchQuery" ska vara KORT (2-3 ord max):
-   - BRA: "köttfärssås", "fiskgratäng", "kycklingwok"
+4. FREDAG = FREDAGSMYS! Välj ALLTID något av: tacos, pizza, hamburgare, fish & chips, nachos, wraps.
+5. "searchQuery" ska vara KORT (2-3 ord max):
+   - BRA: "köttfärssås", "fiskgratäng", "kycklingwok", "tacos"
    - DÅLIGT: "billig vardagsgryta med veckans köttfärserbjudande"
-5. "usesOffers" — lista VILKA erbjudanden rätten använder
-6. Fredagar = fredagsmys men gärna med erbjudanden
+6. "usesOffers" — lista BARA ingredienser som FAKTISKT ingår i rätten OCH finns bland erbjudandena. Ljug inte!
 
 Svara i JSON:
 {
