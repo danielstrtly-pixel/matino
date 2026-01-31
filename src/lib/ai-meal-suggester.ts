@@ -81,11 +81,13 @@ export async function generateMenu(
   // Step 1: AI generates meal names
   const suggestions = await suggestMeals(preferences, offers);
 
-  // Step 2: Search for real recipes in parallel
+  // Step 2: Search for real recipes sequentially (Brave free tier: 1 req/sec)
   console.log(`[MealSuggester] Searching recipes for ${suggestions.length} meals...`);
-  const recipeResults = await Promise.all(
-    suggestions.map(s => searchRecipes(s.name, recipeSources))
-  );
+  const recipeResults: Awaited<ReturnType<typeof searchRecipes>>[] = [];
+  for (let i = 0; i < suggestions.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 1100));
+    recipeResults.push(await searchRecipes(suggestions[i].name, recipeSources));
+  }
 
   // Step 3: Combine into menu items
   const items: MenuItemWithRecipes[] = suggestions.map((suggestion, i) => {
