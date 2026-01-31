@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { generateMenu, regenerateMeal, MenuItemWithRecipes } from '@/lib/ai-meal-suggester';
+import { generateMenu, regenerateMeal, MenuItemWithRecipes, MenuMode } from '@/lib/ai-meal-suggester';
 
 /**
  * GET: Load saved menu(s)
@@ -131,7 +131,8 @@ export async function POST(request: NextRequest) {
     }));
 
     if (action === 'generate') {
-      const menu = await generateMenu(preferences, formattedOffers);
+      const mode: MenuMode = body.mode === 'budget' ? 'budget' : 'taste';
+      const menu = await generateMenu(preferences, formattedOffers, mode);
 
       // Deactivate old menus
       await supabase
@@ -156,15 +157,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ menu });
       }
 
-      // Save menu items — store suggestion + recipes in the recipe JSON column
+      // Save menu items — store suggestion + recipes in the existing recipe JSON column
       const menuItems = menu.items.map((item: MenuItemWithRecipes) => ({
         menu_id: savedMenu.id,
         day_index: item.dayIndex,
         day_name: item.day,
         meal: item.meal,
         recipe: {
-          // Store the new format inside the existing recipe column
           _version: 2,
+          mode,
           suggestion: item.suggestion,
           recipeLinks: item.recipes,
         },
@@ -221,12 +222,15 @@ export async function POST(request: NextRequest) {
           i.suggestion?.name || i.recipe?.name || ''
       ).filter(Boolean) || [];
 
+      const swapMode: MenuMode = currentMenu.mode || body.mode || 'taste';
+
       const newMeal = await regenerateMeal(
         dayIndex,
         meal,
         preferences,
         formattedOffers,
         existingNames,
+        swapMode,
         feedback?.preference || null,
         feedbackContext
       );
@@ -245,6 +249,7 @@ export async function POST(request: NextRequest) {
           .update({
             recipe: {
               _version: 2,
+              mode: swapMode,
               suggestion: newMeal.suggestion,
               recipeLinks: newMeal.recipes,
             },
@@ -301,11 +306,16 @@ function formatMenuFromDb(dbMenu: {
     matched_offers: unknown;
   }[];
 }) {
+  // Detect mode from first v2 item
+  const firstV2 = dbMenu.menu_items?.find(i => (i.recipe as Record<string, unknown>)?._version === 2);
+  const mode = (firstV2?.recipe as Record<string, unknown>)?.mode || 'taste';
+
   return {
     id: dbMenu.id,
     name: dbMenu.name,
     generatedAt: dbMenu.created_at,
     isActive: dbMenu.is_active,
+    mode,
     items: (dbMenu.menu_items || [])
       .sort((a, b) => a.day_index - b.day_index)
       .map(item => {
