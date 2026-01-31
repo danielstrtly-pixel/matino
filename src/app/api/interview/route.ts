@@ -20,7 +20,8 @@ FRÅGOR ATT TÄCKA (i ungefärlig ordning):
 6. Dagar då det måste gå snabbt?
 
 NÄR ALLA FRÅGOR ÄR BESVARADE:
-Skriv en sammanfattning i detta EXAKTA format:
+VIKTIGT: Du MÅSTE använda exakt dessa markörer. Skriv INTE sammanfattningen utan markörerna.
+Skriv sammanfattningen i detta EXAKTA format:
 
 ---SAMMANFATTNING---
 [Skriv en naturlig sammanfattning av vad du lärt dig, i 2:a person]
@@ -65,14 +66,38 @@ export async function POST(request: Request) {
       })),
     ];
 
-    const response = await chat(fullMessages, {
+    let response = await chat(fullMessages, {
       model: 'google/gemini-2.0-flash-001',
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 2000,
     });
 
     // Check if this response contains a summary
-    const hasSummary = response.includes('---SAMMANFATTNING---');
+    let hasSummary = response.includes('---SAMMANFATTNING---') && response.includes('---SLUT---');
+
+    // If AI seems to be summarizing but didn't use the markers, force a follow-up
+    if (!hasSummary && (
+      response.includes('sammanfattning') || 
+      response.includes('Stämmer det') ||
+      response.includes('all information')
+    )) {
+      const retryMessages = [
+        ...fullMessages,
+        { role: 'assistant' as const, content: response },
+        { role: 'user' as const, content: 'Ja, gör en sammanfattning!' },
+      ];
+
+      const retryResponse = await chat(retryMessages, {
+        model: 'google/gemini-2.0-flash-001',
+        temperature: 0.5,
+        max_tokens: 2000,
+      });
+
+      if (retryResponse.includes('---SAMMANFATTNING---')) {
+        response = retryResponse;
+        hasSummary = true;
+      }
+    }
 
     return NextResponse.json({ 
       message: response,
