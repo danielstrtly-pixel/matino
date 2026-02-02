@@ -334,6 +334,7 @@ export class ICAScraper extends BaseScraper {
         quantity: number | undefined;
         quantityPrice: number | undefined;
         imageUrl: string | undefined;
+        offerUrl: string | undefined;
         storeId: string;
         chain: string;
         requiresMembership: boolean;
@@ -375,6 +376,10 @@ export class ICAScraper extends BaseScraper {
         const img = el.querySelector('img');
         const imageUrl = img?.getAttribute('src') || undefined;
         
+        // Get offer URL from link
+        const link = el.querySelector('a[href]') as HTMLAnchorElement;
+        const offerUrl = link?.href || undefined;
+        
         // Check for Stammis (member) price
         const isStammis = text.toLowerCase().includes('stammis');
         
@@ -391,6 +396,7 @@ export class ICAScraper extends BaseScraper {
             quantity,
             quantityPrice,
             imageUrl,
+            offerUrl,
             storeId: storeData.id,
             chain: 'ica',
             requiresMembership: isStammis,
@@ -405,6 +411,7 @@ export class ICAScraper extends BaseScraper {
     // Convert string dates to Date objects and add category
     return rawOffers.map(o => ({
       ...o,
+      offerUrl: o.offerUrl || undefined,
       scrapedAt: new Date(o.scrapedAt),
       category: getCategory(undefined, o.name, 'ica'),
     })) as Offer[];
@@ -458,6 +465,10 @@ export class ICAScraper extends BaseScraper {
       const descEl = await element.$('[class*="description"], [class*="info"], p');
       const description = descEl ? (await descEl.textContent())?.trim() : undefined;
 
+      // Extract offer URL
+      const linkEl = await element.$('a[href]');
+      const offerUrl = linkEl ? await linkEl.getAttribute('href') : undefined;
+
       // Check for membership requirement
       const memberEl = await element.$('[class*="stammis"], [class*="member"]');
       const requiresMembership = !!memberEl;
@@ -477,6 +488,7 @@ export class ICAScraper extends BaseScraper {
         unit: this.parseUnit(priceText || ''),
         savings,
         imageUrl: imageUrl || undefined,
+        offerUrl: offerUrl ? (offerUrl.startsWith('http') ? offerUrl : `https://www.ica.se${offerUrl}`) : undefined,
         storeId: store.id,
         chain: 'ica',
         category,

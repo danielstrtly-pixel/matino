@@ -29,6 +29,8 @@ export interface Offer {
   unit?: string;
   savings?: string;
   imageUrl?: string;
+  /** Direct URL to the offer/product page */
+  offerUrl?: string;
   validFrom?: Date;
   validUntil?: Date;
   storeId: string;

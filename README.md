@@ -55,13 +55,13 @@ GET  /validate[/:chain]
 
 ### Rebuild efter kodändringar
 ```bash
-cd /home/admin/clawd/projects/smartamenyn/scraper
+cd /home/admin/clawd/projects/matino/scraper
 sg docker -c "docker stop smartamenyn-scraper && docker rm smartamenyn-scraper && docker build -t smartamenyn-scraper . && docker run -d --name smartamenyn-scraper -p 3001:3001 --restart unless-stopped smartamenyn-scraper"
 ```
 
 ### Synka erbjudanden till Supabase
 ```bash
-cd /home/admin/clawd/projects/smartamenyn
+cd /home/admin/clawd/projects/matino
 node scripts/sync-offers.js
 ```
 
@@ -133,7 +133,9 @@ export $(grep SUPABASE .env.local | xargs)
 
 ## Cron
 
-- **03:00 nattlig sync** — synkar alla användares butikers erbjudanden
+- **05:00 daglig sync** — rensar offers-tabellen, synkar alla unika butiker från user_stores
+- Cron-jobb: `sync-offers` (kl 04:00 UTC = 05:00 Stockholm)
+- Script: `node scripts/sync-offers.js`
 
 ## Beslut
 

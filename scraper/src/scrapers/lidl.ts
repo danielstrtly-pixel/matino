@@ -154,10 +154,13 @@ export class LidlScraper extends BaseScraper {
       
       productBoxes.forEach(item => {
         try {
-          // Get product name from title link
-          const titleEl = item.querySelector('.odsc-tile__link') as HTMLElement;
-          const name = titleEl?.textContent?.trim();
+          // Get product name and URL from title link
+          const titleLink = item.querySelector('.odsc-tile__link') as HTMLAnchorElement;
+          const name = titleLink?.textContent?.trim();
           if (!name) return;
+          
+          // Get direct product URL
+          const offerUrl = titleLink?.href || null;
           
           // Get product image
           const img = item.querySelector('img.odsc-image-gallery__image') as HTMLImageElement;
@@ -215,6 +218,7 @@ export class LidlScraper extends BaseScraper {
             offerPrice, 
             originalPrice,
             imageUrl, 
+            offerUrl,
             quantity, 
             unit 
           });
@@ -262,6 +266,7 @@ export class LidlScraper extends BaseScraper {
           quantityPrice,  // Per-unit price
           unit,
           imageUrl: raw.imageUrl || undefined,
+          offerUrl: raw.offerUrl || undefined,
           storeId: store.id,
           chain: 'lidl',
           category,

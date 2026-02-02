@@ -250,6 +250,14 @@ export class HemkopScraper extends BaseScraper {
           // Check for membership requirement (Klubbpris)
           const requiresMembership = /klubbpris/i.test(fullText);
           
+          // Extract offer URL
+          const linkEl = await container.$('a[href*="/produkt/"], a[href*="/erbjudanden/"]');
+          let offerUrl: string | undefined;
+          if (linkEl) {
+            const href = await linkEl.getAttribute('href');
+            offerUrl = href ? (href.startsWith('http') ? href : `https://www.hemkop.se${href}`) : undefined;
+          }
+          
           // Classify category based on product name
           const category = getCategory(undefined, name, 'hemkop');
           
@@ -262,6 +270,7 @@ export class HemkopScraper extends BaseScraper {
             quantityPrice,
             unit,
             imageUrl: imageUrl || undefined,
+            offerUrl,
             storeId: store.id,
             chain: 'hemkop',
             category,
@@ -550,6 +559,14 @@ export class HemkopScraper extends BaseScraper {
         // Classify category based on product name
         const category = getCategory(undefined, name, 'hemkop');
         
+        // Extract offer URL from the element
+        let offerUrl: string | undefined;
+        const linkEl = await element.$('a[href]');
+        if (linkEl) {
+          const href = await linkEl.getAttribute('href');
+          offerUrl = href ? (href.startsWith('http') ? href : `https://www.hemkop.se${href}`) : undefined;
+        }
+        
         // Create offer
         const offer: Offer = {
           id: this.generateOfferId('hemkop', store.externalId, name),
@@ -561,6 +578,7 @@ export class HemkopScraper extends BaseScraper {
           quantityPrice,
           unit,
           imageUrl: imageUrl || undefined,
+          offerUrl,
           storeId: store.id,
           chain: 'hemkop',
           category,

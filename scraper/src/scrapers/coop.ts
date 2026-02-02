@@ -192,8 +192,12 @@ export class CoopScraper extends BaseScraper {
           const img = item.querySelector('img');
           const imageUrl = img?.getAttribute('src') || img?.getAttribute('data-src');
           
+          // Get offer URL
+          const link = item.querySelector('a[href]') as HTMLAnchorElement;
+          const offerUrl = link?.href || undefined;
+          
           if (name && priceText) {
-            products.push({ name, priceText, imageUrl, quantity });
+            products.push({ name, priceText, imageUrl, quantity, offerUrl });
           }
         } catch (e) {}
       });
@@ -238,7 +242,10 @@ export class CoopScraper extends BaseScraper {
             
             if (priceText) {
               const imageUrl = img.getAttribute('src') || img.getAttribute('data-src');
-              products.push({ name: alt, priceText, imageUrl, quantity });
+              // Try to find a link near the image
+              const link = parent.querySelector('a[href]') as HTMLAnchorElement;
+              const offerUrl = link?.href || undefined;
+              products.push({ name: alt, priceText, imageUrl, quantity, offerUrl });
               break;
             }
             parent = parent.parentElement;
@@ -279,6 +286,7 @@ export class CoopScraper extends BaseScraper {
           quantity,   // Number of items (e.g. 3)
           quantityPrice, // Per-unit price (e.g. 16.67)
           imageUrl: raw.imageUrl || undefined,
+          offerUrl: raw.offerUrl || undefined,
           storeId: store.id,
           chain: 'coop',
           category,
