@@ -213,9 +213,9 @@ app.post('/api/sync', async (req, res) => {
   try {
     await client.connect();
 
-    // Get user's stores
+    // Get user's stores with last_synced_at
     const { rows: stores } = await client.query(`
-      SELECT DISTINCT s.id, s.name, s.chain_id, s.external_id, s.offers_url
+      SELECT DISTINCT s.id, s.name, s.chain_id, s.external_id, s.offers_url, s.last_synced_at
       FROM stores s
       INNER JOIN user_stores us ON us.store_id = s.id
       WHERE us.user_id = $1
@@ -224,15 +224,40 @@ app.post('/api/sync', async (req, res) => {
 
     if (stores.length === 0) {
       await client.end();
-      return res.json({ success: true, message: 'No stores selected', stores: 0, offers: 0 });
+      return res.json({ success: true, message: 'No stores selected', stores: 0, offers: 0, results: [] });
     }
 
-    console.log(`[Sync] Syncing ${stores.length} stores for user ${userId}`);
+    console.log(`[Sync] Checking ${stores.length} stores for user ${userId}`);
 
-    const results: Array<{ store: string; chain: string; offers: number; error?: string }> = [];
+    const results: Array<{ store: string; chain: string; offers: number; skipped?: boolean; error?: string }> = [];
     let totalOffers = 0;
+    let synced = 0;
+    let skipped = 0;
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
 
     for (const store of stores) {
+      // Skip if already synced today (has offers from today)
+      if (store.last_synced_at) {
+        const lastSync = new Date(store.last_synced_at);
+        if (lastSync >= today) {
+          // Also check that offers actually exist for this store
+          const { rows: [{ count }] } = await client.query(
+            'SELECT COUNT(*)::int as count FROM offers WHERE store_id = $1',
+            [store.id]
+          );
+          if (count > 0) {
+            console.log(`[Sync] ${store.name}: already synced today (${count} offers), skipping`);
+            results.push({ store: store.name, chain: store.chain_id, offers: count, skipped: true });
+            totalOffers += count;
+            skipped++;
+            continue;
+          }
+        }
+      }
+
+      // Needs sync — scrape this store
       const scraper = createScraper(store.chain_id as ChainId);
       try {
         await scraper.init();
@@ -249,6 +274,7 @@ app.post('/api/sync', async (req, res) => {
           totalOffers += count;
           results.push({ store: store.name, chain: store.chain_id, offers: count });
           console.log(`[Sync] ${store.name}: ${count} offers`);
+          synced++;
         } else {
           results.push({ store: store.name, chain: store.chain_id, offers: 0, error: result.error });
           console.log(`[Sync] ${store.name}: error - ${result.error}`);
@@ -262,18 +288,27 @@ app.post('/api/sync', async (req, res) => {
       }
     }
 
-    // Update last_synced_at
-    await client.query(
-      'UPDATE stores SET last_synced_at = NOW() WHERE id = ANY($1)',
-      [stores.map(s => s.id)]
-    );
+    // Update last_synced_at for stores that were actually synced
+    const syncedStoreIds = stores
+      .filter(s => results.find(r => r.store === s.name && !r.skipped && !r.error))
+      .map(s => s.id);
+    if (syncedStoreIds.length > 0) {
+      await client.query(
+        'UPDATE stores SET last_synced_at = NOW() WHERE id = ANY($1)',
+        [syncedStoreIds]
+      );
+    }
 
     await client.end();
+
+    console.log(`[Sync] Done: ${synced} synced, ${skipped} skipped, ${totalOffers} total offers`);
 
     res.json({
       success: true,
       userId,
       stores: stores.length,
+      synced,
+      skipped,
       offers: totalOffers,
       results,
     });

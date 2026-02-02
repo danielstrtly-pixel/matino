@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const SCRAPER_API_URL = process.env.SCRAPER_API_URL || "https://api.smartamenyn.se";
+
 // GET: Load user's selected stores
 export async function GET() {
   try {
@@ -106,11 +108,25 @@ export async function POST(request: Request) {
       }
     }
 
-    // Return info about new stores that need syncing
+    // Trigger offer sync in the background (don't await — let it run)
+    // Get the user's session token to authenticate with the scraper API
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      fetch(`${SCRAPER_API_URL}/api/sync`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }).catch((err) => {
+        console.error("Background sync trigger failed:", err);
+      });
+    }
+
     return NextResponse.json({ 
       success: true, 
       count: storeIds.length,
-      newStoreIds, // Frontend can use this to trigger sync with loading state
+      newStoreIds,
+      syncTriggered: !!session?.access_token,
     });
   } catch (error) {
     console.error("Error in POST /api/user/stores:", error);
