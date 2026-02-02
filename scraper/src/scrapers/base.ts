@@ -94,8 +94,11 @@ export abstract class BaseScraper {
     return match ? match[1] : undefined;
   }
 
+  private _idCounter = 0;
+
   protected generateOfferId(chain: ChainId, storeId: string, name: string): string {
     const hash = name.toLowerCase().replace(/[^a-zåäö0-9]/g, '').slice(0, 20);
-    return `${chain}-${storeId}-${hash}-${Date.now()}`;
+    this._idCounter++;
+    return `${chain}-${storeId}-${hash}-${Date.now()}-${this._idCounter}`;
   }
 }

@@ -22,11 +22,23 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gepkjyzqrjkuminphpxm.supabase.co';
 const DB_URL = process.env.DATABASE_URL || 'postgresql://postgres:LodsKzaNsEuu8m@db.gepkjyzqrjkuminphpxm.supabase.co:5432/postgres';
+const SYNC_API_KEY = process.env.SYNC_API_KEY || 'sm-sync-k8x2pqR7vN4mW3jL';
 
 /**
- * Verify Supabase JWT and return user_id
+ * Authenticate sync request.
+ * Accepts either:
+ * - Supabase JWT (Bearer token) → verifies with Supabase, returns user_id
+ * - API key (X-API-Key header) + user_id in body → server-to-server calls
  */
-async function verifySupabaseAuth(authHeader: string | undefined): Promise<string | null> {
+async function authenticateSync(req: express.Request): Promise<{ userId: string } | null> {
+  // Option 1: API key + user_id (server-to-server)
+  const apiKey = req.headers['x-api-key'] as string;
+  if (apiKey === SYNC_API_KEY && req.body?.userId) {
+    return { userId: req.body.userId };
+  }
+
+  // Option 2: Supabase JWT
+  const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
 
@@ -36,7 +48,7 @@ async function verifySupabaseAuth(authHeader: string | undefined): Promise<strin
     });
     if (!res.ok) return null;
     const user = await res.json() as any;
-    return user?.id || null;
+    return user?.id ? { userId: user.id } : null;
   } catch {
     return null;
   }
@@ -55,6 +67,12 @@ async function syncOffersToDb(client: Client, storeId: string, offers: Offer[]):
         quantity, quantity_price, original_price, unit,
         image_url, offer_url, category, requires_membership, scraped_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        offer_price = EXCLUDED.offer_price,
+        image_url = EXCLUDED.image_url,
+        offer_url = EXCLUDED.offer_url,
+        scraped_at = EXCLUDED.scraped_at
     `, [
       o.id, o.storeId, o.chain, o.name, o.brand || null, o.offerPrice,
       o.quantity || null, o.quantityPrice || null, o.originalPrice || null, o.unit || null,
@@ -201,10 +219,11 @@ app.get('/validate/:chain', async (req, res) => {
 // Sync offers for a user's stores (requires Supabase auth)
 app.post('/api/sync', async (req, res) => {
   // Verify user
-  const userId = await verifySupabaseAuth(req.headers.authorization);
-  if (!userId) {
+  const auth = await authenticateSync(req);
+  if (!auth) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  const { userId } = auth;
 
   console.log(`[Sync] User ${userId} requested sync`);
 
