@@ -218,11 +218,7 @@ function RecipeCard({
         {isActive && onToggleSave && (
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSave(); }}
-            className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-              isSaved 
-                ? "bg-red-500 text-white" 
-                : "bg-white/90 hover:bg-white text-gray-400 hover:text-red-500"
-            }`}
+            className="absolute top-2 right-2 text-3xl drop-shadow-lg transition-transform hover:scale-110"
             title={isSaved ? "Ta bort från samling" : "Spara recept"}
           >
             {isSaved ? "❤️" : "🤍"}
