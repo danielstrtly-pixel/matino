@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/LogoutButton";
+import { MobileNav } from "@/components/MobileNav";
 import { TrialBanner } from "@/components/TrialBanner";
 import { checkAccess } from "@/lib/access";
 
@@ -55,25 +56,7 @@ export default async function DashboardLayout({
           </div>
           
           {/* Mobile menu button */}
-          <div className="md:hidden">
-            <LogoutButton />
-          </div>
-        </div>
-        
-        {/* Mobile nav */}
-        <div className="md:hidden overflow-x-auto border-t border-cream-dark">
-          <div className="flex px-4 py-2 gap-4">
-            {navItems.map((item) => (
-              <Link 
-                key={item.href}
-                href={item.href} 
-                className="text-charcoal/70 hover:text-charcoal transition-colors flex items-center gap-1 whitespace-nowrap text-sm py-1"
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
+          <MobileNav items={navItems} />
         </div>
       </nav>
       
