@@ -82,9 +82,9 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
                 key={index}
                 className="flex-shrink-0 px-2 transition-all duration-500 ease-out"
                 style={{
-                  width: isActive ? "60%" : "25%",
-                  minWidth: isActive ? "280px" : "120px",
-                  maxWidth: isActive ? "400px" : "180px",
+                  width: isActive ? "50%" : "35%",
+                  minWidth: isActive ? "280px" : "200px",
+                  maxWidth: isActive ? "400px" : "280px",
                 }}
               >
                 <RecipeCard 
