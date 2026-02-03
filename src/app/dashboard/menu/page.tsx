@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RecipeCarousel } from "@/components/RecipeCarousel";
 import {
   Dialog,
   DialogContent,
@@ -65,11 +66,6 @@ interface SavedMenu {
   is_active: boolean;
 }
 
-const SOURCE_BADGE: Record<string, { color: string; icon: string }> = {
-  'ICA': { color: 'bg-red-600', icon: '' },
-  'Tasteline': { color: 'bg-orange-500', icon: '' },
-  'Arla': { color: 'bg-blue-600', icon: '' },
-};
 
 export default function MenuPage() {
   const [menu, setMenu] = useState<GeneratedMenu | null>(null);
@@ -343,21 +339,11 @@ export default function MenuPage() {
                   </Button>
                 </div>
 
-                {/* Recipe cards — only show real results (not fallback "Sök..." links) */}
+                {/* Recipe carousel */}
                 {hasRecipes ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {item.recipes
-                      .filter(r => r.imageUrl && !r.title.startsWith('Sök'))
-                      .map((recipe, i) => (
-                        <RecipeCard key={i} recipe={recipe} />
-                      ))}
-                    {/* If all were filtered out, show first available */}
-                    {item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök')).length === 0 &&
-                      item.recipes.slice(0, 1).map((recipe, i) => (
-                        <RecipeCard key={i} recipe={recipe} />
-                      ))
-                    }
-                  </div>
+                  <RecipeCarousel 
+                    recipes={item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök'))}
+                  />
                 ) : (
                   <Card className="p-6 text-center text-gray-400 text-sm">
                     Inga recept hittades
@@ -440,47 +426,3 @@ export default function MenuPage() {
   );
 }
 
-/** Visual recipe card with image */
-function RecipeCard({ recipe }: { recipe: RecipeLink }) {
-  const badge = SOURCE_BADGE[recipe.source] || { color: 'bg-gray-600', icon: '' };
-
-  return (
-    <a
-      href={recipe.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all bg-white"
-    >
-      {/* Image */}
-      <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
-        {recipe.imageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={recipe.imageUrl}
-            alt={recipe.title}
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-4xl text-gray-300">
-            🍽️
-          </div>
-        )}
-        {/* Source badge */}
-        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-xs font-medium ${badge.color}`}>
-          {recipe.source}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-3">
-        <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-green-700 transition-colors">
-          {recipe.title}
-        </h3>
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-          {recipe.description}
-        </p>
-      </div>
-    </a>
-  );
-}
