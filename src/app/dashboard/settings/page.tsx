@@ -158,7 +158,7 @@ export default function SettingsPage() {
     const isEditing = editingField === field;
     
     return (
-      <div className="group">
+      <div>
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-medium mb-2 flex items-center gap-2">
             <span>{icon}</span> {title}
@@ -167,7 +167,7 @@ export default function SettingsPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs"
+              className="h-7 px-2 text-xs text-gray-500 hover:text-gray-900"
               onClick={() => startEdit(field)}
             >
               ✏️ Ändra
@@ -179,14 +179,14 @@ export default function SettingsPage() {
           <div className="space-y-2">
             {multiline ? (
               <Textarea
-                value={editValue}
+                defaultValue={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 className="min-h-[100px]"
                 autoFocus
               />
             ) : (
               <Input
-                value={editValue}
+                defaultValue={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 autoFocus
               />
@@ -266,7 +266,7 @@ export default function SettingsPage() {
 
             {/* Household */}
             {profile.householdSize && (
-              <div className="flex items-center gap-3 pb-4 border-b group">
+              <div className="flex items-center gap-3 pb-4 border-b">
                 <span className="text-2xl">👨‍👩‍👧‍👦</span>
                 <div className="flex-1">
                   <p className="font-medium">Hushåll</p>
@@ -276,7 +276,7 @@ export default function SettingsPage() {
                         type="number"
                         min={1}
                         max={10}
-                        value={editValue}
+                        defaultValue={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         className="w-20"
                         autoFocus
@@ -293,7 +293,7 @@ export default function SettingsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs"
+                    className="h-7 px-2 text-xs text-gray-500 hover:text-gray-900"
                     onClick={() => startEdit('householdSize')}
                   >
                     ✏️
