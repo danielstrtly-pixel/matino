@@ -80,7 +80,7 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
             return (
               <div
                 key={index}
-                className="flex-shrink-0 px-2 transition-all duration-300"
+                className="flex-shrink-0 px-2 transition-all duration-500 ease-out"
                 style={{
                   width: isActive ? "60%" : "25%",
                   minWidth: isActive ? "280px" : "120px",
@@ -161,10 +161,10 @@ function RecipeCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className={`block rounded-xl overflow-hidden border transition-all duration-300 bg-white ${
+      className={`block rounded-xl overflow-hidden border transition-all duration-500 ease-out bg-white ${
         isActive 
           ? "border-fresh shadow-lg scale-100 opacity-100" 
-          : "border-gray-200 shadow scale-95 opacity-60 hover:opacity-80 cursor-pointer"
+          : "border-gray-200 shadow scale-95 opacity-70 hover:opacity-85 cursor-pointer"
       }`}
     >
       {/* Image */}
