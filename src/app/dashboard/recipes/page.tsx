@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -107,15 +106,20 @@ export default function RecipesPage() {
       {/* Empty state */}
       {!loading && recipes.length === 0 && (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">💚</div>
+          <div className="text-6xl mb-4">❤️</div>
           <h2 className="text-xl font-semibold mb-2">
-            {search ? "Inga recept hittades" : "Inga sparade recept"}
+            {search ? "Inga recept hittades" : "Inga sparade recept ännu"}
           </h2>
-          <p className="text-gray-500">
+          <p className="text-gray-500 max-w-md mx-auto">
             {search 
               ? `Hittade inga recept för "${search}"`
-              : "Spara recept från veckomenyn genom att klicka på hjärtat"}
+              : "Gå till Veckomenyn och klicka på 🤍 på ett recept för att spara det här."}
           </p>
+          {!search && (
+            <Button asChild className="mt-4">
+              <a href="/dashboard/menu">Gå till Veckomenyn</a>
+            </Button>
+          )}
         </div>
       )}
 
@@ -150,20 +154,20 @@ function RecipeCard({
   const badgeColor = SOURCE_COLORS[recipe.source || ''] || 'bg-gray-600';
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
+    <div className="relative group">
       <a
         href={recipe.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block"
+        className="block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all bg-white"
       >
         {/* Image */}
-        <div className="relative aspect-[4/3] bg-gray-100">
+        <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
           {recipe.image_url ? (
             <img
               src={recipe.image_url}
               alt={recipe.title}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
             />
           ) : (
@@ -177,11 +181,19 @@ function RecipeCard({
               {recipe.source}
             </div>
           )}
+          {/* Remove heart - shows on hover */}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
+            className="absolute top-2 right-2 text-2xl drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
+            title="Ta bort från samling"
+          >
+            ❤️
+          </button>
         </div>
 
         {/* Content */}
         <div className="p-3">
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2">
+          <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-fresh transition-colors">
             {recipe.title}
           </h3>
           {recipe.description && (
@@ -191,15 +203,6 @@ function RecipeCard({
           )}
         </div>
       </a>
-
-      {/* Remove button - shows on hover */}
-      <button
-        onClick={(e) => { e.preventDefault(); onRemove(); }}
-        className="absolute top-2 right-2 w-8 h-8 bg-white/90 hover:bg-red-100 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Ta bort från samling"
-      >
-        💔
-      </button>
-    </Card>
+    </div>
   );
 }
