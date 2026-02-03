@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { InterviewChat } from "@/components/InterviewChat";
 
@@ -26,32 +28,23 @@ interface InterviewProfile {
   summary?: string;
 }
 
+type EditableField = 'householdSize' | 'currentMeals' | 'wantedChanges' | 'restrictions' | 'luxuryDays' | 'quickDays' | 'preferences';
+
 export default function SettingsPage() {
   const [interviewProfile, setInterviewProfile] = useState<InterviewProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load preferences on mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const prefsRes = await fetch("/api/user/preferences");
-        if (prefsRes.ok) {
-          const data = await prefsRes.json();
-          setInterviewProfile(data.interviewProfile || null);
-        }
-      } catch (e) {
-        console.error("Failed to load data:", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
+    loadPreferences();
   }, []);
 
-  const handleInterviewSaved = async () => {
-    // Reload preferences after interview is saved
+  const loadPreferences = async () => {
     try {
       const prefsRes = await fetch("/api/user/preferences");
       if (prefsRes.ok) {
@@ -59,10 +52,74 @@ export default function SettingsPage() {
         setInterviewProfile(data.interviewProfile || null);
       }
     } catch (e) {
-      console.error("Failed to reload preferences:", e);
+      console.error("Failed to load data:", e);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleInterviewSaved = async () => {
+    await loadPreferences();
     setSaveMessage("✅ Matprofil sparad!");
     setTimeout(() => setSaveMessage(null), 3000);
+  };
+
+  const startEdit = (field: EditableField) => {
+    if (!interviewProfile) return;
+    
+    if (field === 'restrictions') {
+      setEditValue((interviewProfile.restrictions || []).join(', '));
+    } else if (field === 'householdSize') {
+      setEditValue(String(interviewProfile.householdSize || 2));
+    } else {
+      setEditValue((interviewProfile[field] as string) || '');
+    }
+    setEditingField(field);
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingField || !interviewProfile) return;
+    
+    setIsSaving(true);
+    
+    // Build updated profile
+    const updatedProfile = { ...interviewProfile };
+    
+    if (editingField === 'restrictions') {
+      updatedProfile.restrictions = editValue.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (editingField === 'householdSize') {
+      updatedProfile.householdSize = parseInt(editValue) || 2;
+    } else {
+      (updatedProfile as any)[editingField] = editValue;
+    }
+
+    try {
+      const res = await fetch("/api/interview/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: updatedProfile }),
+      });
+
+      if (res.ok) {
+        setInterviewProfile(updatedProfile);
+        setSaveMessage("✅ Uppdaterat!");
+        setTimeout(() => setSaveMessage(null), 2000);
+      } else {
+        setSaveMessage("❌ Kunde inte spara");
+      }
+    } catch (e) {
+      console.error("Failed to save:", e);
+      setSaveMessage("❌ Något gick fel");
+    } finally {
+      setIsSaving(false);
+      setEditingField(null);
+      setEditValue("");
+    }
   };
 
   if (isLoading) {
@@ -83,6 +140,72 @@ export default function SettingsPage() {
     profile.restrictions?.length || 
     profile.preferences
   );
+
+  // Editable field component
+  const EditableSection = ({ 
+    field, 
+    icon, 
+    title, 
+    children,
+    multiline = false 
+  }: { 
+    field: EditableField; 
+    icon: string; 
+    title: string; 
+    children: React.ReactNode;
+    multiline?: boolean;
+  }) => {
+    const isEditing = editingField === field;
+    
+    return (
+      <div className="group">
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="font-medium mb-2 flex items-center gap-2">
+            <span>{icon}</span> {title}
+          </h4>
+          {!isEditing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs"
+              onClick={() => startEdit(field)}
+            >
+              ✏️ Ändra
+            </Button>
+          )}
+        </div>
+        
+        {isEditing ? (
+          <div className="space-y-2">
+            {multiline ? (
+              <Textarea
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="min-h-[100px]"
+                autoFocus
+              />
+            ) : (
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                autoFocus
+              />
+            )}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={saveEdit} disabled={isSaving}>
+                {isSaving ? "Sparar..." : "Spara"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={cancelEdit} disabled={isSaving}>
+                Avbryt
+              </Button>
+            </div>
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -117,7 +240,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       ) : (
-        // Has profile - show it
+        // Has profile - show it with edit options
         <Card className="mb-8 border-2 border-fresh/20 rounded-2xl overflow-hidden">
           <CardHeader className="bg-fresh/5 border-b border-fresh/10">
             <div className="flex items-center justify-between">
@@ -126,7 +249,7 @@ export default function SettingsPage() {
                   <span>🎯</span> Din matprofil
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Baserad på din intervju
+                  Klicka på en sektion för att ändra • eller gör om hela intervjun
                 </CardDescription>
               </div>
               <Button
@@ -135,7 +258,7 @@ export default function SettingsPage() {
                 onClick={() => setInterviewOpen(true)}
                 className="rounded-full"
               >
-                Gör om intervjun
+                🎙️ Ny intervju
               </Button>
             </div>
           </CardHeader>
@@ -143,45 +266,63 @@ export default function SettingsPage() {
 
             {/* Household */}
             {profile.householdSize && (
-              <div className="flex items-center gap-3 pb-4 border-b">
+              <div className="flex items-center gap-3 pb-4 border-b group">
                 <span className="text-2xl">👨‍👩‍👧‍👦</span>
-                <div>
+                <div className="flex-1">
                   <p className="font-medium">Hushåll</p>
-                  <p className="text-gray-600">{profile.householdSize} personer</p>
+                  {editingField === 'householdSize' ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-20"
+                        autoFocus
+                      />
+                      <span className="text-gray-600">personer</span>
+                      <Button size="sm" onClick={saveEdit} disabled={isSaving}>Spara</Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit}>Avbryt</Button>
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">{profile.householdSize} personer</p>
+                  )}
                 </div>
+                {editingField !== 'householdSize' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs"
+                    onClick={() => startEdit('householdSize')}
+                  >
+                    ✏️
+                  </Button>
+                )}
               </div>
             )}
 
             {/* Current meals / preferences */}
             {(profile.currentMeals || profile.currentHabits) && (
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <span>😋</span> Era maträtter & preferenser
-                </h4>
+              <EditableSection field="currentMeals" icon="😋" title="Era maträtter & preferenser" multiline>
                 <p className="text-gray-600 leading-relaxed bg-cream-light/30 rounded-xl p-4">
                   {profile.currentMeals || profile.currentHabits}
                 </p>
-              </div>
+              </EditableSection>
             )}
 
             {/* Wanted changes */}
             {profile.wantedChanges && (
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <span>✨</span> Vill förändra
-                </h4>
+              <EditableSection field="wantedChanges" icon="✨" title="Vill förändra" multiline>
                 <p className="text-gray-600 leading-relaxed bg-blue-50 rounded-xl p-4">
                   {profile.wantedChanges}
                 </p>
-              </div>
+              </EditableSection>
             )}
 
             {/* Restrictions / allergies */}
             {profile.restrictions && profile.restrictions.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <span>🚫</span> Undviker / allergier
-                </h4>
+              <EditableSection field="restrictions" icon="🚫" title="Undviker / allergier">
                 <div className="flex flex-wrap gap-2">
                   {profile.restrictions.map((item, i) => (
                     <Badge 
@@ -193,41 +334,30 @@ export default function SettingsPage() {
                     </Badge>
                   ))}
                 </div>
-              </div>
+              </EditableSection>
             )}
 
             {/* Luxury days */}
             {profile.luxuryDays && (
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">🍾</span>
-                <div>
-                  <p className="font-medium">Lyxigare mat</p>
-                  <p className="text-gray-600">{profile.luxuryDays}</p>
-                </div>
-              </div>
+              <EditableSection field="luxuryDays" icon="🍾" title="Lyxigare mat">
+                <p className="text-gray-600">{profile.luxuryDays}</p>
+              </EditableSection>
             )}
 
             {/* Quick days */}
             {profile.quickDays && (
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">⚡</span>
-                <div>
-                  <p className="font-medium">Snabb mat</p>
-                  <p className="text-gray-600">{profile.quickDays}</p>
-                </div>
-              </div>
+              <EditableSection field="quickDays" icon="⚡" title="Snabb mat">
+                <p className="text-gray-600">{profile.quickDays}</p>
+              </EditableSection>
             )}
 
             {/* Extra preferences */}
             {profile.preferences && (
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <span>💡</span> Övrigt
-                </h4>
+              <EditableSection field="preferences" icon="💡" title="Övrigt" multiline>
                 <p className="text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 text-sm">
                   {profile.preferences}
                 </p>
-              </div>
+              </EditableSection>
             )}
 
             {/* Legacy: Goals */}
