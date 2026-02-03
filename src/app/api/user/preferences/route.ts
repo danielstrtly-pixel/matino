@@ -36,7 +36,7 @@ export async function GET() {
       healthLabels: prefs?.health_labels || [],
       dietLabels: prefs?.diet_labels || [],
       cuisineTypes: prefs?.cuisine_types || [],
-      mealsPerWeek: prefs?.meals_per_week || 5,
+      mealsPerWeek: prefs?.meals_per_week || 7,
       maxCookTime: prefs?.max_cook_time || 45,
     });
   } catch (error) {
