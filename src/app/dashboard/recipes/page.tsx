@@ -129,7 +129,7 @@ export default function RecipesPage() {
           <p className="text-sm text-gray-500 mb-4">
             {recipes.length} recept{search && ` för "${search}"`}
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {recipes.map((recipe) => (
               <RecipeCard 
                 key={recipe.id} 
@@ -154,12 +154,12 @@ function RecipeCard({
   const badgeColor = SOURCE_COLORS[recipe.source || ''] || 'bg-gray-600';
 
   return (
-    <div className="relative group">
+    <div className="relative group max-w-[400px]">
       <a
         href={recipe.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all bg-white"
+        className="block rounded-xl overflow-hidden border border-fresh/20 hover:border-fresh hover:shadow-lg transition-all bg-white"
       >
         {/* Image */}
         <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
