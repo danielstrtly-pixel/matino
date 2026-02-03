@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 
+// Keyframes for text fade-in
+const fadeInKeyframes = `
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+`;
+
 interface Recipe {
   title: string;
   url: string;
@@ -76,6 +84,7 @@ export function RecipeCarousel({ recipes, selectedIndex, onSelect }: RecipeCarou
 
   return (
     <div className="relative">
+      <style>{fadeInKeyframes}</style>
       {/* Carousel viewport - fixed height to prevent jumping */}
       <div className="overflow-hidden h-[400px]" ref={emblaRef}>
         <div className="flex items-end h-full">
@@ -199,20 +208,20 @@ function RecipeCard({
         )}
       </div>
 
-      {/* Content - fade in after card animation completes */}
-      <div 
-        className={`p-3 transition-opacity duration-500 ${
-          isActive ? "opacity-100 delay-700" : "opacity-0"
-        }`}
-        style={{ transitionDelay: isActive ? "700ms" : "0ms" }}
-      >
-        <h3 className="font-semibold text-sm leading-tight line-clamp-2">
-          {recipe.title}
-        </h3>
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-          {recipe.description}
-        </p>
-      </div>
+      {/* Content - fade in after card animation completes, hidden on inactive */}
+      {isActive && (
+        <div 
+          className="p-3 animate-fade-in"
+          style={{ animation: "fadeIn 500ms ease-out 700ms both" }}
+        >
+          <h3 className="font-semibold text-sm leading-tight line-clamp-2">
+            {recipe.title}
+          </h3>
+          <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+            {recipe.description}
+          </p>
+        </div>
+      )}
     </a>
   );
 }
