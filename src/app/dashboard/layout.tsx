@@ -25,7 +25,6 @@ export default async function DashboardLayout({
     { href: "/dashboard/stores", label: "Butiker", icon: "🏪" },
     { href: "/dashboard/deals", label: "Erbjudanden", icon: "🏷️" },
     { href: "/dashboard/menu", label: "Veckomeny", icon: "🍽️" },
-    { href: "/dashboard/shopping-list", label: "Inköpslista", icon: "📝" },
     { href: "/dashboard/settings", label: "Inställningar", icon: "⚙️" },
   ];
 
