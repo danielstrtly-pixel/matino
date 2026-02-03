@@ -199,17 +199,20 @@ function RecipeCard({
         )}
       </div>
 
-      {/* Content - only render for active to avoid text reflow during animation */}
-      {isActive && (
-        <div className="p-3">
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2">
-            {recipe.title}
-          </h3>
-          <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-            {recipe.description}
-          </p>
-        </div>
-      )}
+      {/* Content - fade in after card animation completes */}
+      <div 
+        className={`p-3 transition-opacity duration-500 ${
+          isActive ? "opacity-100 delay-700" : "opacity-0"
+        }`}
+        style={{ transitionDelay: isActive ? "700ms" : "0ms" }}
+      >
+        <h3 className="font-semibold text-sm leading-tight line-clamp-2">
+          {recipe.title}
+        </h3>
+        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+          {recipe.description}
+        </p>
+      </div>
     </a>
   );
 }
