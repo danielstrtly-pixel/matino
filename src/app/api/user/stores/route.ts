@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const SCRAPER_API_URL = process.env.SCRAPER_API_URL || "https://api.smartamenyn.se";
-const SYNC_API_KEY = process.env.SYNC_API_KEY || "sm-sync-k8x2pqR7vN4mW3jL";
-
 // GET: Load user's selected stores
 export async function GET() {
   try {
@@ -109,23 +106,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Trigger offer sync in the background for this user
-    fetch(`${SCRAPER_API_URL}/api/sync`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": SYNC_API_KEY,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    }).catch((err) => {
-      console.error("Background sync trigger failed:", err);
-    });
-
+    // Return new store IDs so frontend can trigger sync explicitly
     return NextResponse.json({ 
       success: true, 
       count: storeIds.length,
       newStoreIds,
-      syncTriggered: true,
     });
   } catch (error) {
     console.error("Error in POST /api/user/stores:", error);

@@ -192,25 +192,33 @@ export default function StoresPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setSaveMessage("✅ Butiker sparade!");
         
-        // If there are new stores, sync their offers
+        // If there are new stores, sync offers (only for stores not synced today)
         if (data.newStoreIds && data.newStoreIds.length > 0) {
           setIsSaving(false);
           setIsSyncing(true);
-          setSyncProgress(`Hämtar erbjudanden för ${data.newStoreIds.length} nya butik${data.newStoreIds.length > 1 ? 'er' : ''}...`);
+          setSyncProgress("Hämtar erbjudanden... Detta kan ta upp till en minut.");
           
           try {
-            const syncRes = await fetch("/api/stores/sync", {
+            const syncRes = await fetch("/api/stores/sync-user", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ storeIds: data.newStoreIds }),
             });
             
             if (syncRes.ok) {
               const syncData = await syncRes.json();
               setSyncProgress(null);
-              setSaveMessage(`✅ ${syncData.totalSynced} erbjudanden hämtade!`);
+              const synced = syncData.synced || 0;
+              const skipped = syncData.skipped || 0;
+              const offers = syncData.offers || 0;
+              
+              if (synced > 0) {
+                setSaveMessage(`✅ ${offers} erbjudanden hämtade från ${synced} butik${synced > 1 ? 'er' : ''}!`);
+              } else if (skipped > 0) {
+                setSaveMessage(`✅ Butiker sparade! Erbjudanden redan uppdaterade idag.`);
+              } else {
+                setSaveMessage(`✅ Butiker sparade!`);
+              }
             } else {
               setSyncProgress(null);
               setSaveMessage("⚠️ Sparade, men kunde inte hämta erbjudanden");
@@ -222,6 +230,8 @@ export default function StoresPage() {
           } finally {
             setIsSyncing(false);
           }
+        } else {
+          setSaveMessage("✅ Butiker sparade!");
         }
         
         setTimeout(() => setSaveMessage(null), 5000);
