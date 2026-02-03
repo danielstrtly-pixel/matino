@@ -63,7 +63,9 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
   if (recipes.length === 1) {
     return (
       <div className="flex justify-center">
-        <RecipeCard recipe={recipes[0]} isActive size="large" />
+        <div style={{ width: "80%", maxWidth: "400px" }}>
+          <RecipeCard recipe={recipes[0]} isActive size="large" />
+        </div>
       </div>
     );
   }
@@ -72,7 +74,7 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
     <div className="relative">
       {/* Carousel viewport */}
       <div className="overflow-hidden" ref={emblaRef}>
-        <div className="flex">
+        <div className="flex items-end">
           {recipes.map((recipe, index) => {
             const isActive = index === currentIndex;
             return (
@@ -89,6 +91,7 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
                   recipe={recipe} 
                   isActive={isActive}
                   size={isActive ? "large" : "small"}
+                  onClickInactive={() => emblaApi?.scrollTo(index)}
                 />
               </div>
             );
@@ -134,23 +137,34 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
 function RecipeCard({ 
   recipe, 
   isActive,
-  size 
+  size,
+  onClickInactive,
 }: { 
   recipe: Recipe; 
   isActive: boolean;
   size: "large" | "small";
+  onClickInactive?: () => void;
 }) {
   const badgeColor = SOURCE_COLORS[recipe.source] || 'bg-gray-600';
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (!isActive && onClickInactive) {
+      e.preventDefault();
+      onClickInactive();
+    }
+    // If active, let the link work normally
+  };
   
   return (
     <a
       href={recipe.url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleClick}
       className={`block rounded-xl overflow-hidden border transition-all duration-300 bg-white ${
         isActive 
           ? "border-fresh shadow-lg scale-100 opacity-100" 
-          : "border-gray-200 shadow scale-95 opacity-60 hover:opacity-80"
+          : "border-gray-200 shadow scale-95 opacity-60 hover:opacity-80 cursor-pointer"
       }`}
     >
       {/* Image */}
