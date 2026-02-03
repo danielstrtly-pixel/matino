@@ -79,6 +79,7 @@ export default function MenuPage() {
   const [swapReason, setSwapReason] = useState('');
   const [swapPreference, setSwapPreference] = useState('');
   const [mode, setMode] = useState<MenuMode>('taste');
+  const [savedRecipeUrls, setSavedRecipeUrls] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadMenu = async () => {
@@ -98,7 +99,62 @@ export default function MenuPage() {
       }
     };
     loadMenu();
+
+    // Load saved recipe URLs
+    const loadSavedRecipes = async () => {
+      try {
+        const res = await fetch('/api/recipes');
+        if (res.ok) {
+          const data = await res.json();
+          const urls = new Set<string>((data.recipes || []).map((r: { url: string }) => r.url));
+          setSavedRecipeUrls(urls);
+        }
+      } catch (e) {
+        console.error('Failed to load saved recipes:', e);
+      }
+    };
+    loadSavedRecipes();
   }, []);
+
+  const toggleSaveRecipe = async (recipe: RecipeLink) => {
+    const isSaved = savedRecipeUrls.has(recipe.url);
+    
+    try {
+      if (isSaved) {
+        // Remove
+        const res = await fetch('/api/recipes', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: recipe.url }),
+        });
+        if (res.ok) {
+          setSavedRecipeUrls(prev => {
+            const next = new Set(prev);
+            next.delete(recipe.url);
+            return next;
+          });
+        }
+      } else {
+        // Save
+        const res = await fetch('/api/recipes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: recipe.title,
+            url: recipe.url,
+            description: recipe.description,
+            source: recipe.source,
+            imageUrl: recipe.imageUrl,
+          }),
+        });
+        if (res.ok) {
+          setSavedRecipeUrls(prev => new Set([...prev, recipe.url]));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to toggle save recipe:', e);
+    }
+  };
 
   const loadHistory = async () => {
     try {
@@ -343,6 +399,8 @@ export default function MenuPage() {
                 {hasRecipes ? (
                   <RecipeCarousel 
                     recipes={item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök'))}
+                    savedUrls={savedRecipeUrls}
+                    onToggleSave={toggleSaveRecipe}
                   />
                 ) : (
                   <Card className="p-6 text-center text-gray-400 text-sm">

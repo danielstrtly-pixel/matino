@@ -23,6 +23,8 @@ interface RecipeCarouselProps {
   recipes: Recipe[];
   selectedIndex?: number;
   onSelect?: (index: number) => void;
+  savedUrls?: Set<string>;
+  onToggleSave?: (recipe: Recipe) => void;
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -31,7 +33,7 @@ const SOURCE_COLORS: Record<string, string> = {
   'Arla': 'bg-blue-600',
 };
 
-export function RecipeCarousel({ recipes, selectedIndex, onSelect }: RecipeCarouselProps) {
+export function RecipeCarousel({ recipes, selectedIndex, onSelect, savedUrls, onToggleSave }: RecipeCarouselProps) {
   // Start with middle card by default
   const middleIndex = Math.floor(recipes.length / 2);
   const initialIndex = selectedIndex !== undefined ? selectedIndex : middleIndex;
@@ -76,7 +78,13 @@ export function RecipeCarousel({ recipes, selectedIndex, onSelect }: RecipeCarou
     return (
       <div className="flex justify-center">
         <div style={{ width: "80%", maxWidth: "400px" }}>
-          <RecipeCard recipe={recipes[0]} isActive size="large" />
+          <RecipeCard 
+            recipe={recipes[0]} 
+            isActive 
+            size="large"
+            isSaved={savedUrls?.has(recipes[0].url)}
+            onToggleSave={onToggleSave ? () => onToggleSave(recipes[0]) : undefined}
+          />
         </div>
       </div>
     );
@@ -105,6 +113,8 @@ export function RecipeCarousel({ recipes, selectedIndex, onSelect }: RecipeCarou
                   isActive={isActive}
                   size={isActive ? "large" : "small"}
                   onClickInactive={() => emblaApi?.scrollTo(index)}
+                  isSaved={savedUrls?.has(recipe.url)}
+                  onToggleSave={onToggleSave ? () => onToggleSave(recipe) : undefined}
                 />
               </div>
             );
@@ -152,11 +162,15 @@ function RecipeCard({
   isActive,
   size,
   onClickInactive,
+  isSaved,
+  onToggleSave,
 }: { 
   recipe: Recipe; 
   isActive: boolean;
   size: "large" | "small";
   onClickInactive?: () => void;
+  isSaved?: boolean;
+  onToggleSave?: () => void;
 }) {
   const badgeColor = SOURCE_COLORS[recipe.source] || 'bg-gray-600';
 
@@ -200,11 +214,19 @@ function RecipeCard({
         <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-xs font-medium ${badgeColor}`}>
           {recipe.source}
         </div>
-        {/* Selected checkmark */}
-        {isActive && (
-          <div className="absolute top-2 right-2 w-6 h-6 bg-fresh rounded-full flex items-center justify-center text-white text-sm">
-            ✓
-          </div>
+        {/* Save heart button */}
+        {isActive && onToggleSave && (
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSave(); }}
+            className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              isSaved 
+                ? "bg-red-500 text-white" 
+                : "bg-white/90 hover:bg-white text-gray-400 hover:text-red-500"
+            }`}
+            title={isSaved ? "Ta bort från samling" : "Spara recept"}
+          >
+            {isSaved ? "❤️" : "🤍"}
+          </button>
         )}
       </div>
 
