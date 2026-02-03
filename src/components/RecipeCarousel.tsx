@@ -199,8 +199,8 @@ function RecipeCard({
         )}
       </div>
 
-      {/* Content - only show on active/large */}
-      {size === "large" && (
+      {/* Content - only render for active to avoid text reflow during animation */}
+      {isActive && (
         <div className="p-3">
           <h3 className="font-semibold text-sm leading-tight line-clamp-2">
             {recipe.title}
