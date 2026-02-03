@@ -396,7 +396,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Menu item not found' }, { status: 404 });
     }
 
-    if ((menuItem.menus as { user_id: string }).user_id !== user.id) {
+    const menus = menuItem.menus as unknown as { user_id: string };
+    if (menus.user_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
