@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
       brand?: string;
       offer_price: number;
       original_price?: number;
+      offer_url?: string;
       store_name: string;
       chain_id: string;
     }) => ({
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
       brand: o.brand,
       offer_price: o.offer_price,
       original_price: o.original_price,
+      offer_url: o.offer_url,
       store_name: o.store_name,
       chain_id: o.chain_id,
     }));

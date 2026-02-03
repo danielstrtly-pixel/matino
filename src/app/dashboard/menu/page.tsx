@@ -38,6 +38,7 @@ interface MatchedOffer {
   offerName: string;
   price: number;
   store: string;
+  offerUrl?: string;
 }
 
 interface MenuItem {
@@ -314,10 +315,17 @@ export default function MenuPage() {
                           const shortStore = offer.store
                             .replace('Supermarket ', '')
                             .replace(', Sthlm', '');
-                          return (
-                            <Badge key={i} className="bg-green-100 text-green-800 text-xs font-normal">
+                          const badgeContent = (
+                            <Badge className={`bg-green-100 text-green-800 text-xs font-normal ${offer.offerUrl ? 'cursor-pointer hover:bg-green-200' : ''}`}>
                               🏷️ {offer.offerName} {offer.price} kr — {shortStore}
                             </Badge>
+                          );
+                          return offer.offerUrl ? (
+                            <a key={i} href={offer.offerUrl} target="_blank" rel="noopener noreferrer">
+                              {badgeContent}
+                            </a>
+                          ) : (
+                            <span key={i}>{badgeContent}</span>
                           );
                         })}
                       </div>

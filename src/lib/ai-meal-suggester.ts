@@ -39,6 +39,7 @@ export interface Offer {
   brand?: string;
   offer_price: number;
   original_price?: number;
+  offer_url?: string;
   store_name: string;
   chain_id: string;
 }
@@ -62,6 +63,7 @@ export interface MenuItemWithRecipes {
     offerName: string;
     price: number;
     store: string;
+    offerUrl?: string;
   }[];
 }
 
@@ -452,6 +454,7 @@ function matchOffersToMeal(
         offerName: offer.name,
         price: offer.offer_price,
         store: offer.store_name,
+        offerUrl: offer.offer_url,
       });
     }
   }
