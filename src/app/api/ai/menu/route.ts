@@ -300,11 +300,13 @@ function formatMenuFromDb(dbMenu: {
   created_at: string;
   is_active: boolean;
   menu_items: {
+    id: string;
     day_index: number;
     day_name: string;
     meal: string;
     recipe: Record<string, unknown>;
     matched_offers: unknown;
+    selected_recipe_index?: number;
   }[];
 }) {
   // Detect mode from first v2 item
@@ -326,12 +328,14 @@ function formatMenuFromDb(dbMenu: {
         if (isV2) {
           // New format: suggestion + recipe links
           return {
+            id: item.id,
             day: item.day_name,
             dayIndex: item.day_index,
             meal: item.meal,
             suggestion: recipe.suggestion,
             recipes: recipe.recipeLinks || [],
             matchedOffers: item.matched_offers || [],
+            selectedRecipeIndex: item.selected_recipe_index ?? Math.floor(((recipe.recipeLinks as unknown[]) || []).length / 2),
           };
         }
 
@@ -361,4 +365,55 @@ function getWeekNumber(date: Date): number {
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+/**
+ * PATCH: Update selected recipe index for a menu item
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { menuItemId, selectedRecipeIndex } = await request.json();
+
+    if (!menuItemId || selectedRecipeIndex === undefined) {
+      return NextResponse.json({ error: 'menuItemId and selectedRecipeIndex required' }, { status: 400 });
+    }
+
+    // Verify the menu item belongs to the user
+    const { data: menuItem, error: fetchError } = await supabase
+      .from('menu_items')
+      .select('id, menu_id, menus!inner(user_id)')
+      .eq('id', menuItemId)
+      .single();
+
+    if (fetchError || !menuItem) {
+      return NextResponse.json({ error: 'Menu item not found' }, { status: 404 });
+    }
+
+    if ((menuItem.menus as { user_id: string }).user_id !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Update selected recipe index
+    const { error: updateError } = await supabase
+      .from('menu_items')
+      .update({ selected_recipe_index: selectedRecipeIndex })
+      .eq('id', menuItemId);
+
+    if (updateError) {
+      console.error('Error updating selected recipe:', updateError);
+      return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error in PATCH /api/ai/menu:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

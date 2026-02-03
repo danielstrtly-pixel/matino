@@ -43,12 +43,14 @@ interface MatchedOffer {
 }
 
 interface MenuItem {
+  id?: string;
   day: string;
   dayIndex: number;
   meal: 'lunch' | 'dinner';
   suggestion: MealSuggestion;
   recipes: RecipeLink[];
   matchedOffers: MatchedOffer[];
+  selectedRecipeIndex?: number;
 }
 
 interface GeneratedMenu {
@@ -115,6 +117,30 @@ export default function MenuPage() {
     };
     loadSavedRecipes();
   }, []);
+
+  const updateSelectedRecipe = async (menuItemId: string, selectedRecipeIndex: number) => {
+    try {
+      await fetch('/api/ai/menu', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menuItemId, selectedRecipeIndex }),
+      });
+      // Update local state
+      setMenu(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map(item => 
+            item.id === menuItemId 
+              ? { ...item, selectedRecipeIndex }
+              : item
+          ),
+        };
+      });
+    } catch (e) {
+      console.error('Failed to update selected recipe:', e);
+    }
+  };
 
   const toggleSaveRecipe = async (recipe: RecipeLink) => {
     const isSaved = savedRecipeUrls.has(recipe.url);
@@ -399,6 +425,8 @@ export default function MenuPage() {
                 {hasRecipes ? (
                   <RecipeCarousel 
                     recipes={item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök'))}
+                    selectedIndex={item.selectedRecipeIndex}
+                    onSelect={item.id ? (index) => updateSelectedRecipe(item.id!, index) : undefined}
                     savedUrls={savedRecipeUrls}
                     onToggleSave={toggleSaveRecipe}
                   />
