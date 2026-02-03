@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ interface InterviewProfile {
   quickDays?: string;
   preferences?: string;
   menuPrompt?: string;
-  // Legacy fields
   currentHabits?: string;
   goals?: string[];
   timeConstraints?: string;
@@ -36,10 +35,11 @@ export default function SettingsPage() {
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
-  const [editValue, setEditValue] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Use ref to store edit value to avoid re-renders
+  const editValueRef = useRef<string>("");
 
-  // Load preferences on mount
   useEffect(() => {
     loadPreferences();
   }, []);
@@ -67,35 +67,39 @@ export default function SettingsPage() {
   const startEdit = (field: EditableField) => {
     if (!interviewProfile) return;
     
+    let value = "";
     if (field === 'restrictions') {
-      setEditValue((interviewProfile.restrictions || []).join(', '));
+      value = (interviewProfile.restrictions || []).join(', ');
     } else if (field === 'householdSize') {
-      setEditValue(String(interviewProfile.householdSize || 2));
+      value = String(interviewProfile.householdSize || 2);
+    } else if (field === 'currentMeals') {
+      value = interviewProfile.currentMeals || interviewProfile.currentHabits || '';
     } else {
-      setEditValue((interviewProfile[field] as string) || '');
+      value = (interviewProfile[field] as string) || '';
     }
+    editValueRef.current = value;
     setEditingField(field);
   };
 
   const cancelEdit = () => {
     setEditingField(null);
-    setEditValue("");
+    editValueRef.current = "";
   };
 
   const saveEdit = async () => {
     if (!editingField || !interviewProfile) return;
     
     setIsSaving(true);
+    const value = editValueRef.current;
     
-    // Build updated profile
     const updatedProfile = { ...interviewProfile };
     
     if (editingField === 'restrictions') {
-      updatedProfile.restrictions = editValue.split(',').map(s => s.trim()).filter(Boolean);
+      updatedProfile.restrictions = value.split(',').map(s => s.trim()).filter(Boolean);
     } else if (editingField === 'householdSize') {
-      updatedProfile.householdSize = parseInt(editValue) || 2;
+      updatedProfile.householdSize = parseInt(value) || 2;
     } else {
-      (updatedProfile as any)[editingField] = editValue;
+      (updatedProfile as any)[editingField] = value;
     }
 
     try {
@@ -118,7 +122,7 @@ export default function SettingsPage() {
     } finally {
       setIsSaving(false);
       setEditingField(null);
-      setEditValue("");
+      editValueRef.current = "";
     }
   };
 
@@ -141,72 +145,6 @@ export default function SettingsPage() {
     profile.preferences
   );
 
-  // Editable field component
-  const EditableSection = ({ 
-    field, 
-    icon, 
-    title, 
-    children,
-    multiline = false 
-  }: { 
-    field: EditableField; 
-    icon: string; 
-    title: string; 
-    children: React.ReactNode;
-    multiline?: boolean;
-  }) => {
-    const isEditing = editingField === field;
-    
-    return (
-      <div>
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="font-medium mb-2 flex items-center gap-2">
-            <span>{icon}</span> {title}
-          </h4>
-          {!isEditing && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-gray-500 hover:text-gray-900"
-              onClick={() => startEdit(field)}
-            >
-              ✏️ Ändra
-            </Button>
-          )}
-        </div>
-        
-        {isEditing ? (
-          <div className="space-y-2">
-            {multiline ? (
-              <Textarea
-                defaultValue={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="min-h-[100px]"
-                autoFocus
-              />
-            ) : (
-              <Input
-                defaultValue={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                autoFocus
-              />
-            )}
-            <div className="flex gap-2">
-              <Button size="sm" onClick={saveEdit} disabled={isSaving}>
-                {isSaving ? "Sparar..." : "Spara"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={cancelEdit} disabled={isSaving}>
-                Avbryt
-              </Button>
-            </div>
-          </div>
-        ) : (
-          children
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-8">
@@ -219,9 +157,7 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Interview CTA or Profile Display */}
       {!hasProfile ? (
-        // No profile yet - show CTA
         <Card className="mb-8 bg-gradient-to-r from-fresh to-fresh/80 text-white border-0 rounded-2xl overflow-hidden">
           <CardContent className="p-8 text-center">
             <div className="text-6xl mb-4">🎙️</div>
@@ -240,7 +176,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       ) : (
-        // Has profile - show it with edit options
         <Card className="mb-8 border-2 border-fresh/20 rounded-2xl overflow-hidden">
           <CardHeader className="bg-fresh/5 border-b border-fresh/10">
             <div className="flex items-center justify-between">
@@ -249,7 +184,7 @@ export default function SettingsPage() {
                   <span>🎯</span> Din matprofil
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Klicka på en sektion för att ändra • eller gör om hela intervjun
+                  Klicka Ändra för att redigera en sektion
                 </CardDescription>
               </div>
               <Button
@@ -265,141 +200,259 @@ export default function SettingsPage() {
           <CardContent className="p-6 space-y-6">
 
             {/* Household */}
-            {profile.householdSize && (
-              <div className="flex items-center gap-3 pb-4 border-b">
-                <span className="text-2xl">👨‍👩‍👧‍👦</span>
-                <div className="flex-1">
-                  <p className="font-medium">Hushåll</p>
-                  {editingField === 'householdSize' ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={10}
-                        defaultValue={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="w-20"
-                        autoFocus
-                      />
-                      <span className="text-gray-600">personer</span>
-                      <Button size="sm" onClick={saveEdit} disabled={isSaving}>Spara</Button>
-                      <Button size="sm" variant="outline" onClick={cancelEdit}>Avbryt</Button>
-                    </div>
-                  ) : (
-                    <p className="text-gray-600">{profile.householdSize} personer</p>
-                  )}
+            <ProfileField
+              icon="👨‍👩‍👧‍👦"
+              title="Hushåll"
+              value={`${profile.householdSize || 2} personer`}
+              isEditing={editingField === 'householdSize'}
+              onEdit={() => startEdit('householdSize')}
+              onSave={saveEdit}
+              onCancel={cancelEdit}
+              isSaving={isSaving}
+              editContent={
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    className="w-20"
+                    autoFocus
+                  />
+                  <span className="text-gray-600">personer</span>
                 </div>
-                {editingField !== 'householdSize' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-gray-500 hover:text-gray-900"
-                    onClick={() => startEdit('householdSize')}
-                  >
-                    ✏️
-                  </Button>
-                )}
-              </div>
-            )}
+              }
+            />
 
-            {/* Current meals / preferences */}
+            {/* Current meals */}
             {(profile.currentMeals || profile.currentHabits) && (
-              <EditableSection field="currentMeals" icon="😋" title="Era maträtter & preferenser" multiline>
-                <p className="text-gray-600 leading-relaxed bg-cream-light/30 rounded-xl p-4">
-                  {profile.currentMeals || profile.currentHabits}
-                </p>
-              </EditableSection>
+              <ProfileField
+                icon="😋"
+                title="Era maträtter & preferenser"
+                value={profile.currentMeals || profile.currentHabits || ''}
+                isEditing={editingField === 'currentMeals'}
+                onEdit={() => startEdit('currentMeals')}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+                isSaving={isSaving}
+                multiline
+                editContent={
+                  <Textarea
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    className="min-h-[100px]"
+                    autoFocus
+                  />
+                }
+                displayClass="bg-cream-light/30 rounded-xl p-4"
+              />
             )}
 
             {/* Wanted changes */}
             {profile.wantedChanges && (
-              <EditableSection field="wantedChanges" icon="✨" title="Vill förändra" multiline>
-                <p className="text-gray-600 leading-relaxed bg-blue-50 rounded-xl p-4">
-                  {profile.wantedChanges}
-                </p>
-              </EditableSection>
+              <ProfileField
+                icon="✨"
+                title="Vill förändra"
+                value={profile.wantedChanges}
+                isEditing={editingField === 'wantedChanges'}
+                onEdit={() => startEdit('wantedChanges')}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+                isSaving={isSaving}
+                multiline
+                editContent={
+                  <Textarea
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    className="min-h-[80px]"
+                    autoFocus
+                  />
+                }
+                displayClass="bg-blue-50 rounded-xl p-4"
+              />
             )}
 
-            {/* Restrictions / allergies */}
+            {/* Restrictions */}
             {profile.restrictions && profile.restrictions.length > 0 && (
-              <EditableSection field="restrictions" icon="🚫" title="Undviker / allergier">
-                <div className="flex flex-wrap gap-2">
-                  {profile.restrictions.map((item, i) => (
-                    <Badge 
-                      key={i} 
-                      variant="outline" 
-                      className="rounded-full px-4 py-1.5 border-orange-300 text-orange-700 bg-orange-50"
-                    >
-                      {item}
-                    </Badge>
-                  ))}
-                </div>
-              </EditableSection>
+              <ProfileField
+                icon="🚫"
+                title="Undviker / allergier"
+                isEditing={editingField === 'restrictions'}
+                onEdit={() => startEdit('restrictions')}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+                isSaving={isSaving}
+                editContent={
+                  <Input
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    placeholder="Separera med komma"
+                    autoFocus
+                  />
+                }
+                customDisplay={
+                  <div className="flex flex-wrap gap-2">
+                    {profile.restrictions.map((item, i) => (
+                      <Badge 
+                        key={i} 
+                        variant="outline" 
+                        className="rounded-full px-4 py-1.5 border-orange-300 text-orange-700 bg-orange-50"
+                      >
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                }
+              />
             )}
 
             {/* Luxury days */}
             {profile.luxuryDays && (
-              <EditableSection field="luxuryDays" icon="🍾" title="Lyxigare mat">
-                <p className="text-gray-600">{profile.luxuryDays}</p>
-              </EditableSection>
+              <ProfileField
+                icon="🍾"
+                title="Lyxigare mat"
+                value={profile.luxuryDays}
+                isEditing={editingField === 'luxuryDays'}
+                onEdit={() => startEdit('luxuryDays')}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+                isSaving={isSaving}
+                editContent={
+                  <Input
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    autoFocus
+                  />
+                }
+              />
             )}
 
             {/* Quick days */}
             {profile.quickDays && (
-              <EditableSection field="quickDays" icon="⚡" title="Snabb mat">
-                <p className="text-gray-600">{profile.quickDays}</p>
-              </EditableSection>
+              <ProfileField
+                icon="⚡"
+                title="Snabb mat"
+                value={profile.quickDays}
+                isEditing={editingField === 'quickDays'}
+                onEdit={() => startEdit('quickDays')}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+                isSaving={isSaving}
+                editContent={
+                  <Input
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    autoFocus
+                  />
+                }
+              />
             )}
 
-            {/* Extra preferences */}
+            {/* Preferences */}
             {profile.preferences && (
-              <EditableSection field="preferences" icon="💡" title="Övrigt" multiline>
-                <p className="text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 text-sm">
-                  {profile.preferences}
-                </p>
-              </EditableSection>
-            )}
-
-            {/* Legacy: Goals */}
-            {profile.goals && profile.goals.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <span>🎯</span> Mål
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {profile.goals.map((goal, i) => (
-                    <Badge key={i} variant="secondary" className="rounded-full px-3 py-1 bg-green-50 text-green-700">
-                      {goal}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Legacy: Time constraints */}
-            {profile.timeConstraints && (
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">⏱️</span>
-                <div>
-                  <p className="font-medium">Tillagningstid</p>
-                  <p className="text-gray-600">{profile.timeConstraints}</p>
-                </div>
-              </div>
+              <ProfileField
+                icon="💡"
+                title="Övrigt"
+                value={profile.preferences}
+                isEditing={editingField === 'preferences'}
+                onEdit={() => startEdit('preferences')}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+                isSaving={isSaving}
+                multiline
+                editContent={
+                  <Textarea
+                    defaultValue={editValueRef.current}
+                    onChange={(e) => { editValueRef.current = e.target.value; }}
+                    className="min-h-[80px]"
+                    autoFocus
+                  />
+                }
+                displayClass="bg-gray-50 rounded-xl p-4 text-sm"
+              />
             )}
 
           </CardContent>
         </Card>
       )}
 
-      {/* Interview dialog */}
       <InterviewChat
         open={interviewOpen}
         onClose={() => setInterviewOpen(false)}
         onSaved={handleInterviewSaved}
       />
 
-      {/* Subscription */}
       <SubscriptionCard />
+    </div>
+  );
+}
+
+// Separate component to avoid re-renders
+function ProfileField({
+  icon,
+  title,
+  value,
+  isEditing,
+  onEdit,
+  onSave,
+  onCancel,
+  isSaving,
+  editContent,
+  customDisplay,
+  displayClass,
+  multiline,
+}: {
+  icon: string;
+  title: string;
+  value?: string;
+  isEditing: boolean;
+  onEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+  isSaving: boolean;
+  editContent: React.ReactNode;
+  customDisplay?: React.ReactNode;
+  displayClass?: string;
+  multiline?: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <h4 className="font-medium flex items-center gap-2">
+          <span>{icon}</span> {title}
+        </h4>
+        {!isEditing && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-gray-500 hover:text-gray-900"
+            onClick={onEdit}
+          >
+            ✏️ Ändra
+          </Button>
+        )}
+      </div>
+      
+      {isEditing ? (
+        <div className="space-y-2">
+          {editContent}
+          <div className="flex gap-2">
+            <Button size="sm" onClick={onSave} disabled={isSaving}>
+              {isSaving ? "Sparar..." : "Spara"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={onCancel} disabled={isSaving}>
+              Avbryt
+            </Button>
+          </div>
+        </div>
+      ) : customDisplay ? (
+        customDisplay
+      ) : (
+        <p className={`text-gray-600 leading-relaxed ${displayClass || ''}`}>
+          {value}
+        </p>
+      )}
     </div>
   );
 }
