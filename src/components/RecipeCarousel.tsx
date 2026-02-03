@@ -77,14 +77,14 @@ export function RecipeCarousel({ recipes, selectedIndex, onSelect }: RecipeCarou
   return (
     <div className="relative">
       {/* Carousel viewport - fixed height to prevent jumping */}
-      <div className="overflow-hidden h-[320px]" ref={emblaRef}>
-        <div className="flex items-end h-full pb-4">
+      <div className="overflow-hidden h-[400px]" ref={emblaRef}>
+        <div className="flex items-end h-full">
           {recipes.map((recipe, index) => {
             const isActive = index === currentIndex;
             return (
               <div
                 key={index}
-                className="flex-shrink-0 px-2 transition-all duration-500 ease-out"
+                className="flex-shrink-0 px-2 transition-all duration-700 ease-out"
                 style={{
                   width: isActive ? "50%" : "35%",
                   minWidth: isActive ? "280px" : "200px",
@@ -165,7 +165,7 @@ function RecipeCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className={`block rounded-xl overflow-hidden border transition-all duration-500 ease-out bg-white ${
+      className={`block rounded-xl overflow-hidden border transition-all duration-700 ease-out bg-white ${
         isActive 
           ? "border-fresh shadow-lg scale-100 opacity-100" 
           : "border-gray-200 shadow scale-95 opacity-70 hover:opacity-85 cursor-pointer"
