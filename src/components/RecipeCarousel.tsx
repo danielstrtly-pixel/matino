@@ -23,18 +23,19 @@ const SOURCE_COLORS: Record<string, string> = {
   'Arla': 'bg-blue-600',
 };
 
-export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeCarouselProps) {
-  // Start with middle card
+export function RecipeCarousel({ recipes, selectedIndex, onSelect }: RecipeCarouselProps) {
+  // Start with middle card by default
   const middleIndex = Math.floor(recipes.length / 2);
+  const initialIndex = selectedIndex !== undefined ? selectedIndex : middleIndex;
   
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
-    startIndex: selectedIndex ?? middleIndex,
+    startIndex: initialIndex,
     align: "center",
     containScroll: false,
   });
   
-  const [currentIndex, setCurrentIndex] = useState(selectedIndex ?? middleIndex);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
@@ -76,8 +77,8 @@ export function RecipeCarousel({ recipes, selectedIndex = 0, onSelect }: RecipeC
   return (
     <div className="relative">
       {/* Carousel viewport - fixed height to prevent jumping */}
-      <div className="overflow-hidden" ref={emblaRef} style={{ minHeight: "320px" }}>
-        <div className="flex items-end h-full">
+      <div className="overflow-hidden h-[320px]" ref={emblaRef}>
+        <div className="flex items-end h-full pb-4">
           {recipes.map((recipe, index) => {
             const isActive = index === currentIndex;
             return (
