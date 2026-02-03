@@ -15,6 +15,7 @@ interface Offer {
   quantityPrice?: number;
   unit?: string;
   imageUrl?: string;
+  offerUrl?: string;
   requiresMembership?: boolean;
   scrapedAt: string;
   storeId: string;
@@ -255,10 +256,10 @@ export default function DealsPage() {
               ? `(${formatPrice(offer.quantityPrice)} kr/st)`
               : null;
             
-            return (
-              <Card key={offer.id} className="hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full">
-                {/* Image container - fixed aspect ratio */}
-                <div className="aspect-square bg-gray-50 relative flex-shrink-0">
+            const cardContent = (
+              <Card className={`hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full ${offer.offerUrl ? 'cursor-pointer' : ''}`}>
+                  {/* Image container - fixed aspect ratio */}
+                  <div className="aspect-square bg-gray-50 relative flex-shrink-0">
                   {offer.imageUrl ? (
                     <img 
                       src={offer.imageUrl} 
@@ -313,6 +314,14 @@ export default function DealsPage() {
                   </div>
                 </div>
               </Card>
+            );
+
+            return offer.offerUrl ? (
+              <a key={offer.id} href={offer.offerUrl} target="_blank" rel="noopener noreferrer" className="block">
+                {cardContent}
+              </a>
+            ) : (
+              <div key={offer.id}>{cardContent}</div>
             );
           })}
         </div>

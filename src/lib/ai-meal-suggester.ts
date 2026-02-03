@@ -22,7 +22,6 @@ export interface UserPreferences {
   cuisineTypes: string[];
   mealsPerWeek: number;
   maxCookTime: number;
-  includeLunch: boolean;
   interviewProfile?: {
     currentMeals?: string;
     wantedChanges?: string;

@@ -25,9 +25,8 @@ export async function POST(request: Request) {
       .upsert({
         user_id: user.id,
         household_size: profile.householdSize || 2,
-        likes: profile.currentHabits ? [profile.currentHabits] : [],
+        likes: profile.currentMeals ? [profile.currentMeals] : [],
         dislikes: profile.restrictions || [],
-        allergies: profile.restrictions || [],
         interview_profile: profile,
         updated_at: new Date().toISOString(),
       }, {

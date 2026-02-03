@@ -33,13 +33,11 @@ export async function GET() {
       hasChildren: prefs?.has_children || false,
       likes: prefs?.likes || [],
       dislikes: prefs?.dislikes || [],
-      allergies: prefs?.allergies || [],
       healthLabels: prefs?.health_labels || [],
       dietLabels: prefs?.diet_labels || [],
       cuisineTypes: prefs?.cuisine_types || [],
       mealsPerWeek: prefs?.meals_per_week || 5,
       maxCookTime: prefs?.max_cook_time || 45,
-      includeLunch: prefs?.include_lunch || false,
     });
   } catch (error) {
     console.error("Error in GET /api/user/preferences:", error);
