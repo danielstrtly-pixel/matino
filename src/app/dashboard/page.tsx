@@ -7,30 +7,27 @@ import { createClient } from "@/lib/supabase/server";
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id || "";
 
-  // Get user's selected stores
+  // Get user stores (need store_ids for offer count query)
   const { data: userStores } = await supabase
     .from("user_stores")
-    .select(`
-      store_id,
-      stores (name, chain_id, profile)
-    `)
-    .eq("user_id", user?.id || "");
+    .select(`store_id, stores (name, chain_id, profile)`)
+    .eq("user_id", userId);
 
   const storeCount = userStores?.length || 0;
   const storeIds = userStores?.map((us: any) => us.store_id) || [];
 
-  // Get offer count from selected stores
+  // Get offer count (sequential - depends on storeIds)
   let offerCount = 0;
   if (storeIds.length > 0) {
     const { count } = await supabase
       .from("offers")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .in("store_id", storeIds);
     offerCount = count || 0;
   }
 
-  // Check if user has stores selected
   const hasStores = storeCount > 0;
   const hasOffers = offerCount > 0;
 
