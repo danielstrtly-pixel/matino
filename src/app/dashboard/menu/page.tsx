@@ -3,12 +3,11 @@ import MenuClient from "./MenuClient";
 
 interface MenuItemDb {
   id: string;
-  day: string;
   day_index: number;
-  meal: 'lunch' | 'dinner';
-  suggestion: any;
-  recipes: any[];
-  matched_offers: any[];
+  day_name: string;
+  meal: string;
+  recipe: Record<string, unknown>;
+  matched_offers: unknown;
   selected_recipe_index?: number;
 }
 
@@ -16,28 +15,57 @@ interface MenuDb {
   id: string;
   name: string;
   created_at: string;
-  mode?: string;
+  is_active: boolean;
   menu_items: MenuItemDb[];
 }
 
-function formatMenuFromDb(menu: MenuDb) {
+function formatMenuFromDb(dbMenu: MenuDb) {
+  // Detect mode from first v2 item
+  const firstV2 = dbMenu.menu_items?.find(i => i.recipe?._version === 2);
+  const mode = (firstV2?.recipe?.mode as string) || 'taste';
+
   return {
-    id: menu.id,
-    name: menu.name,
-    generatedAt: menu.created_at,
-    mode: menu.mode as 'taste' | 'budget' | undefined,
-    items: (menu.menu_items || [])
+    id: dbMenu.id,
+    name: dbMenu.name,
+    generatedAt: dbMenu.created_at,
+    mode: mode as 'taste' | 'budget',
+    items: (dbMenu.menu_items || [])
       .sort((a, b) => a.day_index - b.day_index)
-      .map((item) => ({
-        id: item.id,
-        day: item.day,
-        dayIndex: item.day_index,
-        meal: item.meal,
-        suggestion: item.suggestion || { name: '', description: '', tags: [] },
-        recipes: item.recipes || [],
-        matchedOffers: item.matched_offers || [],
-        selectedRecipeIndex: item.selected_recipe_index,
-      })),
+      .map(item => {
+        const recipe = item.recipe;
+        const isV2 = recipe?._version === 2;
+
+        if (isV2) {
+          // New format: suggestion + recipe links
+          const recipeLinks = (recipe.recipeLinks || []) as unknown[];
+          return {
+            id: item.id,
+            day: item.day_name,
+            dayIndex: item.day_index,
+            meal: item.meal as 'lunch' | 'dinner',
+            suggestion: recipe.suggestion || { name: '', description: '', tags: [] },
+            recipes: recipeLinks,
+            matchedOffers: (item.matched_offers || []) as any[],
+            selectedRecipeIndex: item.selected_recipe_index ?? Math.floor(recipeLinks.length / 2),
+          };
+        }
+
+        // Legacy v1 format: full AI recipe — adapt to new structure
+        return {
+          id: item.id,
+          day: item.day_name,
+          dayIndex: item.day_index,
+          meal: item.meal as 'lunch' | 'dinner',
+          suggestion: {
+            name: (recipe?.name as string) || '',
+            description: (recipe?.description as string) || '',
+            tags: (recipe?.tags as string[]) || [],
+          },
+          recipes: [],
+          matchedOffers: (item.matched_offers || []) as any[],
+          selectedRecipeIndex: item.selected_recipe_index,
+        };
+      }),
   };
 }
 
