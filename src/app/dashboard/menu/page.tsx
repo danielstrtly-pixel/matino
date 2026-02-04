@@ -37,13 +37,18 @@ function formatMenuFromDb(dbMenu: MenuDb) {
 
         if (isV2) {
           // New format: suggestion + recipe links
-          const recipeLinks = (recipe.recipeLinks || []) as unknown[];
+          const recipeLinks = (recipe.recipeLinks || []) as any[];
+          const suggestion = recipe.suggestion as { name?: string; description?: string; tags?: string[] } || {};
           return {
             id: item.id,
             day: item.day_name,
             dayIndex: item.day_index,
             meal: item.meal as 'lunch' | 'dinner',
-            suggestion: recipe.suggestion || { name: '', description: '', tags: [] },
+            suggestion: {
+              name: suggestion.name || '',
+              description: suggestion.description || '',
+              tags: suggestion.tags || [],
+            },
             recipes: recipeLinks,
             matchedOffers: (item.matched_offers || []) as any[],
             selectedRecipeIndex: item.selected_recipe_index ?? Math.floor(recipeLinks.length / 2),
@@ -61,9 +66,9 @@ function formatMenuFromDb(dbMenu: MenuDb) {
             description: (recipe?.description as string) || '',
             tags: (recipe?.tags as string[]) || [],
           },
-          recipes: [],
+          recipes: [] as any[],
           matchedOffers: (item.matched_offers || []) as any[],
-          selectedRecipeIndex: item.selected_recipe_index,
+          selectedRecipeIndex: item.selected_recipe_index ?? 0,
         };
       }),
   };
