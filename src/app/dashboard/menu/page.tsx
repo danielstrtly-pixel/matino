@@ -1,514 +1,74 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import MenuClient from "./MenuClient";
 
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { RecipeCarousel } from "@/components/RecipeCarousel";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-type MenuMode = 'taste' | 'budget';
-
-interface RecipeLink {
-  title: string;
-  url: string;
-  description: string;
-  source: string;
-  imageUrl?: string;
-}
-
-interface MealSuggestion {
-  name: string;
-  searchQuery?: string;
-  description: string;
-  tags: string[];
-  usesOffers?: string[];
-}
-
-interface MatchedOffer {
-  offerId: string;
-  offerName: string;
-  price: number;
-  store: string;
-  offerUrl?: string;
-}
-
-interface MenuItem {
-  id?: string;
+interface MenuItemDb {
+  id: string;
   day: string;
-  dayIndex: number;
+  day_index: number;
   meal: 'lunch' | 'dinner';
-  suggestion: MealSuggestion;
-  recipes: RecipeLink[];
-  matchedOffers: MatchedOffer[];
-  selectedRecipeIndex?: number;
+  suggestion: any;
+  recipes: any[];
+  matched_offers: any[];
+  selected_recipe_index?: number;
 }
 
-interface GeneratedMenu {
-  id?: string;
-  name?: string;
-  items: MenuItem[];
-  generatedAt: string;
-  mode?: MenuMode;
-}
-
-interface SavedMenu {
+interface MenuDb {
   id: string;
   name: string;
   created_at: string;
-  is_active: boolean;
+  mode?: string;
+  menu_items: MenuItemDb[];
 }
 
-
-export default function MenuPage() {
-  const [menu, setMenu] = useState<GeneratedMenu | null>(null);
-  const [savedMenus, setSavedMenus] = useState<SavedMenu[]>([]);
-  const [generating, setGenerating] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [swapping, setSwapping] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [swapItem, setSwapItem] = useState<MenuItem | null>(null);
-  const [swapReason, setSwapReason] = useState('');
-  const [swapPreference, setSwapPreference] = useState('');
-  const [mode, setMode] = useState<MenuMode>('taste');
-  const [savedRecipeUrls, setSavedRecipeUrls] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const loadMenu = async () => {
-      try {
-        const res = await fetch('/api/ai/menu');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.menu) {
-            setMenu(data.menu);
-            if (data.menu.mode) setMode(data.menu.mode);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load menu:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadMenu();
-
-    // Load saved recipe URLs
-    const loadSavedRecipes = async () => {
-      try {
-        const res = await fetch('/api/recipes');
-        if (res.ok) {
-          const data = await res.json();
-          const urls = new Set<string>((data.recipes || []).map((r: { url: string }) => r.url));
-          setSavedRecipeUrls(urls);
-        }
-      } catch (e) {
-        console.error('Failed to load saved recipes:', e);
-      }
-    };
-    loadSavedRecipes();
-  }, []);
-
-  const updateSelectedRecipe = async (menuItemId: string, selectedRecipeIndex: number) => {
-    try {
-      await fetch('/api/ai/menu', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ menuItemId, selectedRecipeIndex }),
-      });
-      // Update local state
-      setMenu(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.map(item => 
-            item.id === menuItemId 
-              ? { ...item, selectedRecipeIndex }
-              : item
-          ),
-        };
-      });
-    } catch (e) {
-      console.error('Failed to update selected recipe:', e);
-    }
+function formatMenuFromDb(menu: MenuDb) {
+  return {
+    id: menu.id,
+    name: menu.name,
+    generatedAt: menu.created_at,
+    mode: menu.mode as 'taste' | 'budget' | undefined,
+    items: (menu.menu_items || [])
+      .sort((a, b) => a.day_index - b.day_index)
+      .map((item) => ({
+        id: item.id,
+        day: item.day,
+        dayIndex: item.day_index,
+        meal: item.meal,
+        suggestion: item.suggestion || { name: '', description: '', tags: [] },
+        recipes: item.recipes || [],
+        matchedOffers: item.matched_offers || [],
+        selectedRecipeIndex: item.selected_recipe_index,
+      })),
   };
+}
 
-  const toggleSaveRecipe = async (recipe: RecipeLink) => {
-    const isSaved = savedRecipeUrls.has(recipe.url);
-    
-    try {
-      if (isSaved) {
-        // Remove
-        const res = await fetch('/api/recipes', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: recipe.url }),
-        });
-        if (res.ok) {
-          setSavedRecipeUrls(prev => {
-            const next = new Set(prev);
-            next.delete(recipe.url);
-            return next;
-          });
-        }
-      } else {
-        // Save
-        const res = await fetch('/api/recipes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: recipe.title,
-            url: recipe.url,
-            description: recipe.description,
-            source: recipe.source,
-            imageUrl: recipe.imageUrl,
-          }),
-        });
-        if (res.ok) {
-          setSavedRecipeUrls(prev => new Set([...prev, recipe.url]));
-        }
-      }
-    } catch (e) {
-      console.error('Failed to toggle save recipe:', e);
-    }
-  };
+export default async function MenuPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id || "";
 
-  const loadHistory = async () => {
-    try {
-      const res = await fetch('/api/ai/menu?all=true');
-      if (res.ok) {
-        const data = await res.json();
-        setSavedMenus(data.menus || []);
-      }
-    } catch (e) {
-      console.error('Failed to load history:', e);
-    }
-  };
+  // Parallel fetch: active menu + saved recipe URLs
+  const [{ data: menuData }, { data: recipesData }] = await Promise.all([
+    supabase
+      .from("menus")
+      .select("*, menu_items(*)")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single(),
+    supabase
+      .from("saved_recipes")
+      .select("url")
+      .eq("user_id", userId),
+  ]);
 
-  const loadSpecificMenu = async (menuId: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/ai/menu?id=${menuId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.menu) {
-          setMenu(data.menu);
-          if (data.menu.mode) setMode(data.menu.mode);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load menu:', e);
-    } finally {
-      setLoading(false);
-      setShowHistory(false);
-    }
-  };
-
-  const generateMenu = async () => {
-    setGenerating(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/ai/menu', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', mode }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to generate menu');
-      }
-      const data = await res.json();
-      setMenu(data.menu);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Något gick fel');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const openSwapDialog = (item: MenuItem) => {
-    setSwapItem(item);
-    setSwapReason('');
-    setSwapPreference('');
-  };
-
-  const executeSwap = async () => {
-    if (!swapItem) return;
-    const key = `${swapItem.dayIndex}-${swapItem.meal}`;
-    setSwapping(key);
-    setSwapItem(null);
-    try {
-      const res = await fetch('/api/ai/menu', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'swap',
-          currentMenu: menu,
-          dayIndex: swapItem.dayIndex,
-          meal: swapItem.meal,
-          mode,
-          feedback: {
-            recipeName: swapItem.suggestion.name,
-            reason: swapReason,
-            preference: swapPreference,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to swap meal');
-      }
-      const data = await res.json();
-      setMenu(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.map(m =>
-            m.dayIndex === swapItem.dayIndex && m.meal === swapItem.meal
-              ? data.meal : m
-          ),
-        };
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kunde inte byta rätt');
-    } finally {
-      setSwapping(null);
-    }
-  };
+  const initialMenu = menuData ? formatMenuFromDb(menuData as MenuDb) : null;
+  const initialSavedRecipeUrls = (recipesData || []).map((r: { url: string }) => r.url);
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Veckomeny</h1>
-            {menu?.name && (
-              <p className="text-sm text-gray-500 mt-1">
-                {menu.name} • {new Date(menu.generatedAt).toLocaleDateString('sv-SE')}
-              </p>
-            )}
-          </div>
-          <Button variant="outline" size="sm" onClick={() => { loadHistory(); setShowHistory(true); }}>
-            📋
-          </Button>
-        </div>
-
-        {/* Mode toggle */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setMode('taste')}
-            className={`p-3 rounded-xl border-2 transition-all text-left ${
-              mode === 'taste'
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <span className="text-lg">🍽️</span>
-            <span className="font-semibold ml-2 text-sm">Äta gott</span>
-            <p className="text-xs text-gray-500 mt-0.5">Smak i fokus, erbjudanden som bonus</p>
-          </button>
-          <button
-            onClick={() => setMode('budget')}
-            className={`p-3 rounded-xl border-2 transition-all text-left ${
-              mode === 'budget'
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <span className="text-lg">💰</span>
-            <span className="font-semibold ml-2 text-sm">Spara pengar</span>
-            <p className="text-xs text-gray-500 mt-0.5">Bygg menyn kring veckans deals</p>
-          </button>
-        </div>
-
-        <Button onClick={generateMenu} disabled={generating} className="mt-4 w-full sm:w-auto" size="lg">
-          {generating ? '⏳ Skapar meny...' : `🤖 ${menu ? 'Ny meny' : 'Skapa veckomeny'}`}
-        </Button>
-      </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          ❌ {error}
-        </div>
-      )}
-
-      {/* Loading */}
-      {(generating || loading) && (
-        <div className="space-y-6">
-          {generating && (
-            <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-              ✨ Söker recept från ICA, Tasteline och Arla...
-            </p>
-          )}
-          {[1, 2, 3].map(i => (
-            <div key={i}>
-              <Skeleton className="h-5 w-20 mb-3" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[1, 2, 3].map(j => (
-                  <Skeleton key={j} className="h-64 rounded-xl" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Empty */}
-      {!generating && !loading && !menu && (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4">🍽️</div>
-          <h2 className="text-xl font-semibold mb-2">Ingen veckomeny ännu</h2>
-          <p className="text-gray-500 text-sm">
-            Välj fokus och klicka &quot;Skapa veckomeny&quot; för att få recept från ICA, Tasteline och Arla.
-          </p>
-        </div>
-      )}
-
-      {/* Menu */}
-      {!generating && !loading && menu && (
-        <div className="space-y-8">
-          {menu.items.map((item) => {
-            const isSwapping = swapping === `${item.dayIndex}-${item.meal}`;
-            const hasRecipes = item.recipes?.length > 0;
-
-            return (
-              <div key={`${item.dayIndex}-${item.meal}`}>
-                {/* Day header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h2 className="text-lg font-bold text-green-700">{item.day}</h2>
-                    <span className="text-base text-charcoal font-medium">— {item.suggestion.name}</span>
-                    {item.matchedOffers.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {item.matchedOffers.map((offer, i) => {
-                          const shortStore = offer.store
-                            .replace('Supermarket ', '')
-                            .replace(', Sthlm', '');
-                          const badgeContent = (
-                            <Badge className={`bg-green-100 text-green-800 text-xs font-normal ${offer.offerUrl ? 'cursor-pointer hover:bg-green-200' : ''}`}>
-                              🏷️ {offer.offerName} {offer.price} kr — {shortStore}
-                            </Badge>
-                          );
-                          return offer.offerUrl ? (
-                            <a key={i} href={offer.offerUrl} target="_blank" rel="noopener noreferrer">
-                              {badgeContent}
-                            </a>
-                          ) : (
-                            <span key={i}>{badgeContent}</span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-gray-500"
-                    onClick={() => openSwapDialog(item)}
-                    disabled={isSwapping}
-                  >
-                    {isSwapping ? '⏳' : '🔄 Byt'}
-                  </Button>
-                </div>
-
-                {/* Recipe carousel */}
-                {hasRecipes ? (
-                  <RecipeCarousel 
-                    recipes={item.recipes.filter(r => r.imageUrl && !r.title.startsWith('Sök'))}
-                    selectedIndex={item.selectedRecipeIndex}
-                    onSelect={item.id ? (index) => updateSelectedRecipe(item.id!, index) : undefined}
-                    savedUrls={savedRecipeUrls}
-                    onToggleSave={toggleSaveRecipe}
-                  />
-                ) : (
-                  <Card className="p-6 text-center text-gray-400 text-sm">
-                    Inga recept hittades
-                  </Card>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Swap dialog */}
-      <Dialog open={!!swapItem} onOpenChange={() => setSwapItem(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Byt rätt — {swapItem?.day}</DialogTitle>
-            <DialogDescription>Berätta vad du tänker så hittar vi något bättre.</DialogDescription>
-          </DialogHeader>
-          {swapItem && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reason">Vad gillar du inte? (valfritt)</Label>
-                <Textarea
-                  id="reason"
-                  placeholder="T.ex. 'Gillar inte fisk', 'Tar för lång tid'..."
-                  value={swapReason}
-                  onChange={(e) => setSwapReason(e.target.value)}
-                  rows={2}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="preference">Vad föredrar du? (valfritt)</Label>
-                <Textarea
-                  id="preference"
-                  placeholder="T.ex. 'Något med kyckling', 'Vegetariskt'..."
-                  value={swapPreference}
-                  onChange={(e) => setSwapPreference(e.target.value)}
-                  rows={2}
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setSwapItem(null)}>Avbryt</Button>
-            <Button onClick={executeSwap}>🔄 Byt rätt</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* History dialog */}
-      <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Tidigare menyer</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {savedMenus.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">Inga sparade menyer</p>
-            )}
-            {savedMenus.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => loadSpecificMenu(m.id)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  m.is_active ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <p className="font-medium">{m.name || 'Meny'}</p>
-                <p className="text-sm text-gray-500">
-                  {new Date(m.created_at).toLocaleDateString('sv-SE', {
-                    day: 'numeric', month: 'long', year: 'numeric',
-                  })}
-                </p>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+    <MenuClient 
+      initialMenu={initialMenu} 
+      initialSavedRecipeUrls={initialSavedRecipeUrls} 
+    />
   );
 }
-
