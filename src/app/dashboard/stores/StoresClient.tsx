@@ -39,6 +39,11 @@ const CHAINS = [
     description: "ICA Maxi, ICA Kvantum, ICA Supermarket, ICA Nära",
     searchable: true,
     searchPlaceholder: "Sök på butik, stad eller typ (maxi, kvantum...)",
+    searchTips: [
+      { term: "maxi", desc: "alla Maxi-butiker" },
+      { term: "stockholm", desc: "butiker i Stockholm" },
+      { term: "kvantum", desc: "alla Kvantum-butiker" },
+    ],
   },
   {
     id: "hemkop",
@@ -49,6 +54,10 @@ const CHAINS = [
     description: "Hemköp-butiker i hela Sverige",
     searchable: true,
     searchPlaceholder: "Sök på butik eller stad",
+    searchTips: [
+      { term: "stockholm", desc: "butiker i Stockholm" },
+      { term: "göteborg", desc: "butiker i Göteborg" },
+    ],
   },
   {
     id: "coop",
@@ -59,6 +68,10 @@ const CHAINS = [
     description: "Coop, Stora Coop, Coop Extra",
     searchable: true,
     searchPlaceholder: "Sök på butik eller stad",
+    searchTips: [
+      { term: "stockholm", desc: "butiker i Stockholm" },
+      { term: "göteborg", desc: "butiker i Göteborg" },
+    ],
   },
   {
     id: "lidl",
@@ -396,14 +409,14 @@ export default function StoresClient({ initialStores }: StoresClientProps) {
               </ScrollArea>
             )}
 
-            {searchQuery.length < 2 && (
+            {searchQuery.length < 2 && activeChain?.searchTips && (
               <div className="text-center py-8 text-gray-400">
                 <p className="text-lg mb-2">💡 Tips</p>
                 <p>Sök på:</p>
                 <ul className="mt-2 space-y-1">
-                  <li><strong>maxi</strong> - alla Maxi-butiker</li>
-                  <li><strong>stockholm</strong> - butiker i Stockholm</li>
-                  <li><strong>kvantum</strong> - alla Kvantum-butiker</li>
+                  {activeChain.searchTips.map((tip) => (
+                    <li key={tip.term}><strong>{tip.term}</strong> - {tip.desc}</li>
+                  ))}
                 </ul>
               </div>
             )}

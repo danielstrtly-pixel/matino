@@ -56,7 +56,8 @@ export async function POST(request: Request) {
 async function seedCoopStores(supabase: SupabaseClient): Promise<number> {
   console.log('Fetching Coop stores from API...');
 
-  const coopApiKey = process.env.COOP_API_KEY;
+  // Not secret, got it from scraping coop
+  const coopApiKey = '990520e65cc44eef89e9e9045b57f4e9';
   if (!coopApiKey) {
     throw new Error('COOP_API_KEY environment variable is required');
   }

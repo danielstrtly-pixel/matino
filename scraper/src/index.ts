@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { Client } from 'pg';
 import { createScraper, getSupportedChains } from './scrapers';
@@ -23,6 +24,8 @@ const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const DB_URL = process.env.DATABASE_URL;
 const SYNC_API_KEY = process.env.SYNC_API_KEY;
+
+console.log(SUPABASE_URL, DB_URL, SYNC_API_KEY);
 
 if (!SUPABASE_URL || !DB_URL || !SYNC_API_KEY) {
   console.error('❌ Required environment variables: SUPABASE_URL, DATABASE_URL, SYNC_API_KEY');
@@ -91,8 +94,8 @@ async function syncOffersToDb(client: Client, storeId: string, offers: Offer[]):
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     supportedChains: getSupportedChains(),
   });
@@ -114,19 +117,19 @@ app.get('/chains/:chain/stores', async (req, res) => {
   }
 
   const scraper = createScraper(chain);
-  
+
   try {
     await scraper.init();
     const result = await scraper.searchStores(query);
-    
+
     if (result.success) {
       res.json(result.data);
     } else {
       res.status(500).json({ error: result.error });
     }
   } catch (error) {
-    res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   } finally {
     await scraper.close();
@@ -147,19 +150,19 @@ app.post('/chains/:chain/offers', async (req, res) => {
   }
 
   const scraper = createScraper(chain);
-  
+
   try {
     await scraper.init();
     const result = await scraper.getOffers(store);
-    
+
     if (result.success) {
       res.json(result.data);
     } else {
       res.status(500).json({ error: result.error });
     }
   } catch (error) {
-    res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   } finally {
     await scraper.close();
@@ -169,7 +172,7 @@ app.post('/chains/:chain/offers', async (req, res) => {
 // Validate scrapers
 app.get('/validate', async (req, res) => {
   const results = [];
-  
+
   for (const chain of getSupportedChains()) {
     const scraper = createScraper(chain);
     try {
@@ -187,9 +190,9 @@ app.get('/validate', async (req, res) => {
       await scraper.close();
     }
   }
-  
+
   const allValid = results.every(r => r.valid);
-  res.status(allValid ? 200 : 500).json({ 
+  res.status(allValid ? 200 : 500).json({
     valid: allValid,
     results,
   });
@@ -204,7 +207,7 @@ app.get('/validate/:chain', async (req, res) => {
   }
 
   const scraper = createScraper(chain);
-  
+
   try {
     await scraper.init();
     const result = await scraper.validate();
@@ -337,7 +340,7 @@ app.post('/api/sync', async (req, res) => {
       results,
     });
   } catch (error) {
-    await client.end().catch(() => {});
+    await client.end().catch(() => { });
     console.error(`[Sync] Error:`, error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Sync failed',
