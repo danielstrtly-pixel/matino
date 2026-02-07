@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { PricingSection } from "@/components/PricingSection";
+import { LogoutButton } from "@/components/LogoutButton";
+import { MobileNav } from "@/components/MobileNav";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -16,42 +18,69 @@ export default async function Home() {
   const { data: { user } } = await supabase.auth.getUser();
   const isLoggedIn = !!user;
 
+  const dashboardNavItems = [
+    { href: "/dashboard", label: "Översikt", icon: "🏠" },
+    { href: "/dashboard/stores", label: "Butiker", icon: "🏪" },
+    { href: "/dashboard/deals", label: "Erbjudanden", icon: "🏷️" },
+    { href: "/dashboard/menu", label: "Veckomeny", icon: "🍽️" },
+    { href: "/dashboard/recipes", label: "Receptsamling", icon: "❤️" },
+    { href: "/dashboard/settings", label: "Inställningar", icon: "⚙️" },
+  ];
+
   return (
     <div className="min-h-screen bg-cream">
       {/* Navigation */}
-      <nav className="container mx-auto px-4 py-4 md:py-6 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl">🥗</span>
-          <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
-        </Link>
-        <div className="hidden md:flex items-center gap-8">
-          <Link href="#hur-det-funkar" className="text-charcoal/70 hover:text-charcoal transition-colors">
-            Hur det funkar
+      {isLoggedIn ? (
+        <nav className="bg-cream-light border-b border-cream-dark sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="text-2xl">🥗</span>
+              <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
+            </Link>
+            <div className="hidden md:flex items-center gap-6">
+              {dashboardNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-charcoal/70 hover:text-charcoal transition-colors flex items-center gap-1.5"
+                >
+                  <span className="text-sm">{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+              <span className="text-cream-dark">|</span>
+              <LogoutButton />
+            </div>
+            <MobileNav items={dashboardNavItems} />
+          </div>
+        </nav>
+      ) : (
+        <nav className="container mx-auto px-4 py-4 md:py-6 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-2xl">🥗</span>
+            <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
           </Link>
-          <Link href="#fordelar" className="text-charcoal/70 hover:text-charcoal transition-colors">
-            Fördelar
-          </Link>
-          <Link href="#butiker" className="text-charcoal/70 hover:text-charcoal transition-colors">
-            Butiker
-          </Link>
-        </div>
-        <div className="flex items-center gap-3">
-          {isLoggedIn ? (
+          <div className="hidden md:flex items-center gap-8">
+            <Link href="#hur-det-funkar" className="text-charcoal/70 hover:text-charcoal transition-colors">
+              Hur det funkar
+            </Link>
+            <Link href="#fordelar" className="text-charcoal/70 hover:text-charcoal transition-colors">
+              Fördelar
+            </Link>
+            <Link href="#butiker" className="text-charcoal/70 hover:text-charcoal transition-colors">
+              Butiker
+            </Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-charcoal/70 hover:text-charcoal transition-colors hidden sm:block text-sm">
+              Logga in
+            </Link>
             <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-5 md:px-6">
-              <Link href="/dashboard">Min dashboard</Link>
+              <Link href="/signup">Prova gratis</Link>
             </Button>
-          ) : (
-            <>
-              <Link href="/login" className="text-charcoal/70 hover:text-charcoal transition-colors hidden sm:block text-sm">
-                Logga in
-              </Link>
-              <Button asChild className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-5 md:px-6">
-                <Link href="/signup">Prova gratis</Link>
-              </Button>
-            </>
-          )}
-        </div>
-      </nav>
+          </div>
+        </nav>
+      )}
 
       {/* Hero - Start med smärtpunkten */}
       <section className="container mx-auto px-4 pt-8 md:pt-16 pb-16 md:pb-24">
@@ -69,22 +98,16 @@ export default async function Home() {
             Du sparar tid, pengar och slipper huvudvärken.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            {isLoggedIn ? (
-              <Button asChild size="lg" className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg">
-                <Link href="/dashboard">Gå till din dashboard</Link>
+          {!isLoggedIn && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+              <Button asChild size="lg" className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-shadow">
+                <Link href="/signup">Prova gratis i 7 dagar</Link>
               </Button>
-            ) : (
-              <>
-                <Button asChild size="lg" className="bg-orange hover:bg-[#D55A25] text-white rounded-full px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-shadow">
-                  <Link href="/signup">Prova gratis i 7 dagar</Link>
-                </Button>
-                <Button asChild variant="outline" size="lg" className="rounded-full px-8 py-6 text-lg border-charcoal/20 hover:bg-cream-dark">
-                  <Link href="#hur-det-funkar">Se hur det funkar</Link>
-                </Button>
-              </>
-            )}
-          </div>
+              <Button asChild variant="outline" size="lg" className="rounded-full px-8 py-6 text-lg border-charcoal/20 hover:bg-cream-dark">
+                <Link href="#hur-det-funkar">Se hur det funkar</Link>
+              </Button>
+            </div>
+          )}
           
           {!isLoggedIn && (
             <p className="text-sm text-charcoal/50">
