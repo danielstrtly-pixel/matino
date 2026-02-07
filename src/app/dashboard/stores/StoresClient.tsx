@@ -33,9 +33,8 @@ const CHAINS = [
   {
     id: "ica",
     name: "ICA",
-    logo: "🔴",
-    color: "bg-red-50 border-red-200 hover:bg-red-100",
-    activeColor: "bg-red-100 border-red-400",
+    color: "bg-cream-light border-cream-dark hover:bg-cream-dark/50",
+    activeColor: "bg-cream-light border-fresh/40",
     description: "ICA Maxi, ICA Kvantum, ICA Supermarket, ICA Nära",
     searchable: true,
     searchPlaceholder: "Sök på butik, stad eller typ (maxi, kvantum...)",
@@ -48,9 +47,8 @@ const CHAINS = [
   {
     id: "hemkop",
     name: "Hemköp",
-    logo: "🟠",
-    color: "bg-orange-50 border-orange-200 hover:bg-orange-100",
-    activeColor: "bg-orange-100 border-orange-400",
+    color: "bg-cream-light border-cream-dark hover:bg-cream-dark/50",
+    activeColor: "bg-cream-light border-fresh/40",
     description: "Hemköp-butiker i hela Sverige",
     searchable: true,
     searchPlaceholder: "Sök på butik eller stad",
@@ -62,9 +60,8 @@ const CHAINS = [
   {
     id: "coop",
     name: "Coop",
-    logo: "🟢",
-    color: "bg-green-50 border-green-200 hover:bg-green-100",
-    activeColor: "bg-green-100 border-green-400",
+    color: "bg-cream-light border-cream-dark hover:bg-cream-dark/50",
+    activeColor: "bg-cream-light border-fresh/40",
     description: "Coop, Stora Coop, Coop Extra",
     searchable: true,
     searchPlaceholder: "Sök på butik eller stad",
@@ -76,9 +73,8 @@ const CHAINS = [
   {
     id: "lidl",
     name: "Lidl",
-    logo: "🔵",
-    color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
-    activeColor: "bg-blue-100 border-blue-400",
+    color: "bg-cream-light border-cream-dark hover:bg-cream-dark/50",
+    activeColor: "bg-cream-light border-fresh/40",
     description: "Klicka för att lägga till (samma erbjudanden i alla butiker)",
     searchable: true,
     directAdd: true,
@@ -267,16 +263,15 @@ export default function StoresClient({ initialStores }: StoresClientProps) {
             >
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
-                  <span className="text-3xl">{chain.logo}</span>
                   <span>{chain.name}</span>
                   {chain.id === 'lidl' ? (
                     isLidlSelected && (
-                      <Badge variant="secondary" className="ml-auto bg-green-100 text-green-800">
-                        ✓ Tillagd
+                      <Badge variant="secondary" className="ml-auto bg-fresh-light text-fresh">
+                        Tillagd
                       </Badge>
                     )
                   ) : count > 0 ? (
-                    <Badge variant="secondary" className="ml-auto">
+                    <Badge variant="secondary" className="ml-auto bg-fresh-light text-fresh">
                       {count} butik{count !== 1 ? "er" : ""}
                     </Badge>
                   ) : null}
@@ -335,8 +330,7 @@ export default function StoresClient({ initialStores }: StoresClientProps) {
       <Dialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="text-2xl">{activeChain?.logo}</span>
+            <DialogTitle>
               Välj {activeChain?.name}-butiker
             </DialogTitle>
             <DialogDescription>
