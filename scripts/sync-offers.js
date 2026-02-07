@@ -10,10 +10,16 @@
  * Runs daily at 05:00 Stockholm time via cron.
  */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { Client } = require('pg');
 
 const SCRAPER_URL = process.env.SCRAPER_URL || 'http://localhost:3001';
-const DB_URL = 'postgresql://postgres:LodsKzaNsEuu8m@db.gepkjyzqrjkuminphpxm.supabase.co:5432/postgres';
+const DB_URL = process.env.DATABASE_URL;
+
+if (!DB_URL) {
+  console.error('❌ DATABASE_URL environment variable is required');
+  process.exit(1);
+}
 
 async function getStoresToSync(client) {
   const { rows } = await client.query(`

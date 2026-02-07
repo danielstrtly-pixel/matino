@@ -1,62 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { createClient } from "@/lib/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 import Link from "next/link";
 
-interface Subscription {
-  subscription_id: string;
-  status: string;
-  price_id: string;
-  product_name: string;
-  unit_amount: number;
-  interval: string;
-  current_period_end: string;
-  cancel_at_period_end: boolean;
-}
-
 export function SubscriptionCard() {
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { subscription, loading, openPortal } = useSubscription();
   const [portalLoading, setPortalLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchSubscription() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('get_user_subscription', {
-        p_user_id: user.id,
-      });
-
-      if (!error && data && data.length > 0) {
-        setSubscription(data[0]);
-      }
-      
-      setLoading(false);
-    }
-
-    fetchSubscription();
-  }, []);
-
-  const openPortal = async () => {
+  const handleOpenPortal = async () => {
     setPortalLoading(true);
     try {
-      const response = await fetch('/api/portal', { method: 'POST' });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Kunde inte öppna kundportalen. Försök igen.');
-      }
+      await openPortal();
     } catch (error) {
       console.error('Portal error:', error);
       alert('Något gick fel. Försök igen.');
@@ -104,10 +62,10 @@ export function SubscriptionCard() {
 
   // Calculate subscription info
   const periodEnd = new Date(subscription.current_period_end);
-  
+
   const isYearly = subscription.interval === 'year';
   const planName = isYearly ? 'Årsabonnemang' : 'Månadsabonnemang';
-  const priceFormatted = subscription.unit_amount 
+  const priceFormatted = subscription.unit_amount
     ? `${subscription.unit_amount / 100} kr/${isYearly ? 'år' : 'mån'}`
     : '';
 
@@ -138,7 +96,7 @@ export function SubscriptionCard() {
           <div>
             <p className="font-medium">{planName}</p>
             <p className="text-sm text-gray-500">
-              {subscription.cancel_at_period_end 
+              {subscription.cancel_at_period_end
                 ? `Avslutas ${periodEnd.toLocaleDateString('sv-SE')}`
                 : `Förnyas ${periodEnd.toLocaleDateString('sv-SE')}`
               }
@@ -146,16 +104,16 @@ export function SubscriptionCard() {
           </div>
           <Badge className={statusColor}>{statusLabel}</Badge>
         </div>
-        
+
         {priceFormatted && (
           <p className="text-sm text-gray-500 mb-4">
             {priceFormatted} · Avsluta när du vill.
           </p>
         )}
 
-        <Button 
-          variant="outline" 
-          onClick={openPortal}
+        <Button
+          variant="outline"
+          onClick={handleOpenPortal}
           disabled={portalLoading}
           className="w-full"
         >

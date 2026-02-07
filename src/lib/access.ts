@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 
 const TRIAL_DAYS = 7;
@@ -13,13 +14,14 @@ export interface AccessStatus {
 
 /**
  * Check if current user has access to premium features.
+ * Pass an existing user to avoid a redundant getUser() call.
  * Access is granted if:
  * 1. User has active Stripe subscription (active/trialing), OR
  * 2. User's account was created within the last TRIAL_DAYS days
  */
-export async function checkAccess(): Promise<AccessStatus> {
+export async function checkAccess(existingUser?: User): Promise<AccessStatus> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = existingUser ?? (await supabase.auth.getUser()).data.user;
 
   if (!user) {
     return {

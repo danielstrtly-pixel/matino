@@ -500,16 +500,6 @@ export class ICAScraper extends BaseScraper {
     }
   }
 
-  private dedupeOffers(offers: Offer[]): Offer[] {
-    const seen = new Set<string>();
-    return offers.filter(offer => {
-      const key = `${offer.name}-${offer.offerPrice}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-
   private async acceptCookies(page: Page): Promise<void> {
     try {
       const acceptBtn = await page.$('button[id*="accept"], button[class*="accept"], button:has-text("Acceptera")');

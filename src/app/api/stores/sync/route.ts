@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-const SCRAPER_URL = process.env.SCRAPER_URL || "http://localhost:3001";
+import { SCRAPER_URL } from "@/lib/config";
 const SYNC_COOLDOWN_HOURS = 24;
 
 interface Store {

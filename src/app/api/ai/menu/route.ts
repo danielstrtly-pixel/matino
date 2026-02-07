@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateMenu, regenerateMeal, MenuItemWithRecipes, MenuMode } from '@/lib/ai-meal-suggester';
+import { formatMenuFromDb, type MenuDb } from '@/lib/menu-utils';
 
 /**
  * GET: Load saved menu(s)
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Menu not found' }, { status: 404 });
       }
 
-      return NextResponse.json({ menu: formatMenuFromDb(menu) });
+      return NextResponse.json({ menu: formatMenuFromDb(menu as MenuDb) });
     }
 
     if (all) {
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ menu: null });
     }
 
-    return NextResponse.json({ menu: formatMenuFromDb(menu) });
+    return NextResponse.json({ menu: formatMenuFromDb(menu as MenuDb) });
   } catch (error) {
     console.error('Error loading menu:', error);
     return NextResponse.json(
@@ -289,74 +290,6 @@ function extractFeedbackTags(reason?: string, preference?: string): string[] {
     if (text.includes(keyword)) tags.push(keyword);
   }
   return tags;
-}
-
-/**
- * Format menu from DB — handles both v1 (full recipe) and v2 (suggestion + links) formats
- */
-function formatMenuFromDb(dbMenu: {
-  id: string;
-  name: string;
-  created_at: string;
-  is_active: boolean;
-  menu_items: {
-    id: string;
-    day_index: number;
-    day_name: string;
-    meal: string;
-    recipe: Record<string, unknown>;
-    matched_offers: unknown;
-    selected_recipe_index?: number;
-  }[];
-}) {
-  // Detect mode from first v2 item
-  const firstV2 = dbMenu.menu_items?.find(i => (i.recipe as Record<string, unknown>)?._version === 2);
-  const mode = (firstV2?.recipe as Record<string, unknown>)?.mode || 'taste';
-
-  return {
-    id: dbMenu.id,
-    name: dbMenu.name,
-    generatedAt: dbMenu.created_at,
-    isActive: dbMenu.is_active,
-    mode,
-    items: (dbMenu.menu_items || [])
-      .sort((a, b) => a.day_index - b.day_index)
-      .map(item => {
-        const recipe = item.recipe as Record<string, unknown>;
-        const isV2 = recipe?._version === 2;
-
-        if (isV2) {
-          // New format: suggestion + recipe links
-          return {
-            id: item.id,
-            day: item.day_name,
-            dayIndex: item.day_index,
-            meal: item.meal,
-            suggestion: recipe.suggestion,
-            recipes: recipe.recipeLinks || [],
-            matchedOffers: item.matched_offers || [],
-            selectedRecipeIndex: item.selected_recipe_index ?? Math.floor(((recipe.recipeLinks as unknown[]) || []).length / 2),
-          };
-        }
-
-        // Legacy v1 format: full AI recipe — adapt to new structure
-        return {
-          day: item.day_name,
-          dayIndex: item.day_index,
-          meal: item.meal,
-          suggestion: {
-            name: (recipe as { name?: string }).name || 'Okänd rätt',
-            description: (recipe as { description?: string }).description || '',
-            tags: (recipe as { tags?: string[] }).tags || [],
-            usesOffers: [],
-          },
-          recipes: [], // No recipe links for legacy menus
-          matchedOffers: item.matched_offers || [],
-          // Keep legacy recipe for backward compat
-          legacyRecipe: recipe,
-        };
-      }),
-  };
 }
 
 function getWeekNumber(date: Date): number {

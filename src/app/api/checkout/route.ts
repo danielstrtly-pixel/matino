@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       console.error('Auth error:', authError);
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     console.log('Creating checkout for user:', user.id, user.email);

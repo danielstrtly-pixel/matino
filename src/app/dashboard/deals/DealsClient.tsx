@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -180,11 +181,12 @@ export default function DealsClient({ offers, chains, lastUpdated }: DealsClient
               <Card className={`hover:shadow-lg transition-shadow overflow-hidden flex flex-col h-full ${offer.offerUrl ? 'cursor-pointer' : ''}`}>
                 <div className="aspect-square bg-gray-50 relative flex-shrink-0">
                   {offer.imageUrl ? (
-                    <img 
-                      src={offer.imageUrl} 
+                    <Image
+                      src={offer.imageUrl.startsWith('//') ? `https:${offer.imageUrl}` : offer.imageUrl}
                       alt={offer.name}
-                      className="w-full h-full object-contain p-3"
-                      loading="lazy"
+                      fill
+                      className="object-contain p-3"
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">

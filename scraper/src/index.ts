@@ -20,9 +20,14 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gepkjyzqrjkuminphpxm.supabase.co';
-const DB_URL = process.env.DATABASE_URL || 'postgresql://postgres:LodsKzaNsEuu8m@db.gepkjyzqrjkuminphpxm.supabase.co:5432/postgres';
-const SYNC_API_KEY = process.env.SYNC_API_KEY || 'sm-sync-k8x2pqR7vN4mW3jL';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const DB_URL = process.env.DATABASE_URL;
+const SYNC_API_KEY = process.env.SYNC_API_KEY;
+
+if (!SUPABASE_URL || !DB_URL || !SYNC_API_KEY) {
+  console.error('❌ Required environment variables: SUPABASE_URL, DATABASE_URL, SYNC_API_KEY');
+  process.exit(1);
+}
 
 /**
  * Authenticate sync request.

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { chat } from '@/lib/openrouter';
+import { chat, DEFAULT_MODEL } from '@/lib/openrouter';
 
 const SYSTEM_PROMPT = `Du är SmartaMenyns matexpert. Du intervjuar användaren för att förstå deras matvanor och preferenser så att du kan skapa den perfekta veckomenyn.
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { messages } = await request.json();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     ];
 
     let response = await chat(fullMessages, {
-      model: 'google/gemini-3-flash-preview',
+      model: DEFAULT_MODEL,
       temperature: 0.7,
       max_tokens: 2000,
     });
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       ];
 
       const retryResponse = await chat(retryMessages, {
-        model: 'google/gemini-3-flash-preview',
+        model: DEFAULT_MODEL,
         temperature: 0.5,
         max_tokens: 2000,
       });

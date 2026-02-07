@@ -27,7 +27,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-charcoal mb-3">1. Vem är ansvarig för dina uppgifter?</h2>
             <p className="text-charcoal/80 leading-relaxed">
-              SmartaMenyn ("vi", "oss", "tjänsten") är personuppgiftsansvarig för behandlingen av dina personuppgifter. 
+              SmartaMenyn ({'"'}vi{'"'}, {'"'}oss{'"'}, {'"'}tjänsten{'"'}) är personuppgiftsansvarig för behandlingen av dina personuppgifter.
               Vi följer EU:s dataskyddsförordning (GDPR) och svensk lagstiftning.
             </p>
             <p className="text-charcoal/80 leading-relaxed mt-2">
@@ -88,7 +88,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-2 text-charcoal/80">
               <li><strong>Få tillgång:</strong> Begära en kopia av alla uppgifter vi har om dig</li>
               <li><strong>Rätta:</strong> Korrigera felaktiga uppgifter</li>
-              <li><strong>Radera:</strong> Be oss radera dina uppgifter ("rätten att bli glömd")</li>
+              <li><strong>Radera:</strong> Be oss radera dina uppgifter ({'"'}rätten att bli glömd{'"'})</li>
               <li><strong>Flytta:</strong> Få ut dina uppgifter i ett maskinläsbart format</li>
               <li><strong>Invända:</strong> Motsätta dig viss behandling</li>
               <li><strong>Begränsa:</strong> Begära att vi begränsar behandlingen</li>

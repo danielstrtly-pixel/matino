@@ -89,10 +89,6 @@ async function upsertSubscription(subscription: Stripe.Subscription, userId?: st
   });
 }
 
-async function deleteSubscription(subscriptionId: string) {
-  await supabaseAdmin.from('subscriptions').delete().eq('id', subscriptionId);
-}
-
 export async function POST(request: Request) {
   const body = await request.text();
   const headersList = await headers();

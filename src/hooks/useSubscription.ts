@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-interface Subscription {
+export interface Subscription {
   subscription_id: string;
   status: string;
   price_id: string;

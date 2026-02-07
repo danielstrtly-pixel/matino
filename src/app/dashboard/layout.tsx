@@ -18,7 +18,7 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const access = await checkAccess();
+  const access = await checkAccess(user);
 
   const navItems = [
     { href: "/dashboard", label: "Översikt", icon: "🏠" },

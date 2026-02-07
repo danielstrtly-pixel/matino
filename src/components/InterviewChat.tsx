@@ -52,7 +52,8 @@ export function InterviewChat({ open, onClose, onSaved }: InterviewChatProps) {
       setSummary(null);
       setProfile(null);
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, started]);
 
   const startConversation = async () => {
     setLoading(true);

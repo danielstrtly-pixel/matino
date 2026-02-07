@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import useEmblaCarousel from "embla-carousel-react";
 
 // Keyframes for text fade-in
@@ -199,11 +200,12 @@ function RecipeCard({
         size === "large" ? "aspect-[4/3]" : "aspect-square"
       }`}>
         {recipe.imageUrl ? (
-          <img
+          <Image
             src={recipe.imageUrl}
             alt={recipe.title}
-            className="absolute inset-0 w-full h-full object-cover"
-            loading="lazy"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 80vw, 400px"
           />
         ) : (
           <div className="flex items-center justify-center h-full text-4xl text-gray-300">

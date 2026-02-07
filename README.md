@@ -1,67 +1,91 @@
 # SmartaMenyn
 
-**Slack-kanal:** #smartamenyn (C0AAWCFR1F0)
 **Domän:** www.smartamenyn.se
 **Live URL:** https://smartamenyn-two.vercel.app/
-**Repo:** `/home/admin/clawd/projects/smartamenyn`
 
 ## Om projektet
 
-Tjänst som skannar närliggande butiker efter mat-erbjudanden och genererar en veckomeny baserad på deals. Användare kan diskutera och förfina menyn utifrån preferenser.
+SmartaMenyn är en svensk måltidsplaneringstjänst. Den skannar matbutikserbjudanden från ICA, Hemköp och Lidl, och genererar sedan personliga veckomenyer som utnyttjar veckans deals. AI föreslår måltider och riktiga receptlänkar hittas via Brave Search från svenska receptsajter (ICA, Tasteline, Arla m.fl.).
 
-## Tech Stack
+## Arkitektur
 
-- Next.js 14 + TypeScript
-- TailwindCSS + shadcn/ui
-- Supabase (Auth + DB)
-- Vercel hosting
-- Docker scraper på cb1 (port 3001)
+Två separata applikationer:
+
+### 1. Web App (root `/`)
+- **Next.js 16** + React 19 + TypeScript
+- TailwindCSS v4 + shadcn/ui (New York style)
+- Supabase (Auth med Magic Link + PostgreSQL)
+- Stripe (prenumerationer)
+- OpenRouter (Gemini 3 Flash via API) för AI-menygenrering
+- Brave Search API för receptlänkar
+- Deployas till **Vercel**
+
+### 2. Scraper Service (`scraper/`)
+- Express + Playwright + Cheerio
+- Docker-container (`mcr.microsoft.com/playwright:v1.50.1-jammy`)
+- Exponerar REST API på port 3001
+- Eget `package.json` och `tsconfig.json`
+
+### Dataflöde
+```
+Scraper (Docker, port 3001) → scripts/sync-offers.js → Supabase (PostgreSQL)
+                                                              ↓
+User väljer butiker → API hämtar erbjudanden + preferenser → OpenRouter (Gemini 3 Flash) genererar måltidsförslag
+                                                              ↓
+                                                    Brave Search hittar receptlänkar
+                                                              ↓
+                                                    Meny sparas i databas
+```
 
 ## Stödda butiker
 
-| Butik | Status | Antal erbjudanden |
-|-------|--------|-------------------|
-| ICA | ✅ Fungerar | ~54 |
-| Hemköp | ✅ Fungerar | ~55 |
-| Lidl | ✅ Fungerar | ~114 |
-| Coop | 🚧 Butiker seedade, scraper behöver fix | 0 |
+| Butik  | Status        | Kommentar                           |
+|--------|---------------|-------------------------------------|
+| ICA    | ✅ Fungerar   | Playwright-baserad, scrollar lazy-loaded content |
+| Hemköp | ✅ Fungerar   | Playwright-baserad, klickar "Se alla erbjudanden" |
+| Lidl   | ✅ Fungerar   | Cheerio-baserad, nationella erbjudanden |
+| Coop   | 🚧 WIP       | Butiker seedade, scraper behöver implementation |
 
-## Kärnfunktioner (MVP)
+## Funktioner
 
-1. ✅ Landing page med value prop
-2. ✅ Magic Link auth
-3. ✅ Användare väljer butiker
-4. ✅ Visa erbjudanden från valda butiker
-5. 🚧 Generera X luncher/middagar (AI) — **NÄSTA**
-6. ✅ Användarpreferenser (likes/dislikes, allergier)
-7. 🚧 Swap måltider med feedback
-8. 🚧 Inköpslista med butiksgruppering
-9. 🚧 Dela meny / familjegrupper
-10. 🚧 Stripe: 69 kr/mån, 1 vecka gratis
+- ✅ Landing page
+- ✅ Magic Link-autentisering (email OTP)
+- ✅ Användare väljer butiker (ICA, Hemköp, Lidl, Coop)
+- ✅ Visa erbjudanden från valda butiker med kategorifilter
+- ✅ AI-genererad veckomeny (två lägen: "smak" och "budget")
+- ✅ Riktiga receptlänkar från svenska sajter
+- ✅ Matprofilintervju (AI-chattbaserad)
+- ✅ Swap-måltider med feedback
+- ✅ Spara favoritrecept
+- ✅ Användarpreferenser (allergier, dieter, matkulturer, likes/dislikes)
+- ✅ Stripe-betalning (69 kr/mån, 499 kr/år, 1 vecka gratis trial)
+- 🚧 Inköpslista med butiksgruppering
+- 🚧 Dela meny / familjegrupper
+- 🚧 Coop-scraper
 
 ## Scraper
 
-**Container:** `smartamenyn-scraper` på port 3001
-**Image:** `mcr.microsoft.com/playwright:v1.50.1-jammy`
-
 ### API Endpoints
 ```
-GET  /health
-GET  /chains
-GET  /chains/:chain/stores?q=query
-POST /chains/:chain/offers
-GET  /validate[/:chain]
+GET  /health                    — Hälsostatus + stödda kedjor
+GET  /chains                    — Lista stödda kedjor
+GET  /chains/:chain/stores?q=   — Sök butiker
+POST /chains/:chain/offers      — Hämta erbjudanden för en butik
+GET  /validate[/:chain]         — Validera scraper(s)
+POST /api/sync                  — Synka erbjudanden för en användares butiker (auth krävs)
 ```
 
 ### Rebuild efter kodändringar
 ```bash
-cd /home/admin/clawd/projects/matino/scraper
-sg docker -c "docker stop smartamenyn-scraper && docker rm smartamenyn-scraper && docker build -t smartamenyn-scraper . && docker run -d --name smartamenyn-scraper -p 3001:3001 --restart unless-stopped smartamenyn-scraper"
+cd scraper
+docker stop smartamenyn-scraper && docker rm smartamenyn-scraper
+docker build -t smartamenyn-scraper .
+docker run -d --name smartamenyn-scraper -p 3001:3001 --restart unless-stopped smartamenyn-scraper
 ```
 
 ### Synka erbjudanden till Supabase
 ```bash
-cd /home/admin/clawd/projects/matino
+# Kräver DATABASE_URL miljövariabel
 node scripts/sync-offers.js
 ```
 
@@ -82,112 +106,77 @@ node scripts/sync-offers.js
 - UNDVIK: `img.seal__badge` (kvalitetsmärken)
 - **MODIFIERA INTE URL:er** — imgproxy har signerade hashar
 
-## Supabase Direct Access
+## Databasschema
 
-**Project ref:** `gepkjyzqrjkuminphpxm`
-**URL:** `https://gepkjyzqrjkuminphpxm.supabase.co`
-**Service role key:** I `.env.local`
+### Matdata
+- `chains` — butikskedjor (ICA, Hemköp, Lidl, Coop)
+- `stores` — alla butiker
+- `offers` — erbjudanden med pris, bild, kategori m.m.
 
-### Query via curl
-```bash
-# SELECT
-curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE?select=*&limit=10" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
-
-# INSERT
-curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"column": "value"}'
-
-# UPDATE (med filter)
-curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE?id=eq.123" \
-  -X PATCH \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"column": "new_value"}'
-
-# DELETE
-curl -s "https://gepkjyzqrjkuminphpxm.supabase.co/rest/v1/TABLE?id=eq.123" \
-  -X DELETE \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
-```
-
-### Ladda env och kör
-```bash
-cd /home/admin/clawd/projects/smartamenyn
-export $(grep SUPABASE .env.local | xargs)
-# Nu kan du använda $SUPABASE_SERVICE_ROLE_KEY
-```
-
-## Databasschema (viktiga tabeller)
-
-- `stores` — alla butiker (1287 ICA + 725 Coop + Hemköp + Lidl)
-- `offers` — erbjudanden med `quantity`, `quantity_price` fält
+### Användardata
 - `user_stores` — användarens valda butiker
-- `user_preferences` — likes/dislikes/allergier
+- `user_preferences` — likes/dislikes, allergier, matprofil
+- `user_feedback` — swap-feedback för att lära sig preferenser
+- `saved_recipes` — sparade favoritrecept
+
+### Menyer
+- `menus` — genererade veckomenyer
+- `menu_items` — individuella måltider med recept och matchade erbjudanden
+
+### Betalning
+- `customers` — Stripe-kundkoppling
+- `subscriptions` — Stripe-prenumerationer
+- `products`, `prices` — Stripe-produktkatalog
+
+## Miljövariabler
+
+### Web App (`.env.local`)
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENROUTER_API_KEY` — för AI-anrop via OpenRouter
+- `BRAVE_SEARCH_API_KEY` — för receptsökning
+- `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+- `SCRAPER_URL` — scraper-tjänstens URL (default: `http://localhost:3001`)
+- `COOP_API_KEY` — för Coop butiks-API
+
+### Scraper (`scraper/.env`)
+- `DATABASE_URL` — PostgreSQL-anslutning
+- `SUPABASE_URL` — Supabase-projektets URL
+- `SYNC_API_KEY` — API-nyckel för server-till-server-autentisering
+
+## Utveckling
+
+### Web App
+```bash
+npm install
+npm run dev          # Next.js dev server (port 3000)
+npm run build        # Produktionsbygge
+npm run lint         # ESLint
+```
+
+### Scraper
+```bash
+cd scraper
+npm install
+npm run dev          # Express API dev server med tsx watch (port 3001)
+npm test             # Kör scraper-valideringstester
+npm run scrape:ica   # CLI: skrapa ICA-erbjudanden
+npm run scrape:hemkop # CLI: skrapa Hemköp-erbjudanden
+```
 
 ## Cron
 
-- **05:00 daglig sync** — rensar offers-tabellen, synkar alla unika butiker från user_stores
-- Cron-jobb: `sync-offers` (kl 04:00 UTC = 05:00 Stockholm)
+- **05:00 Stockholm** daglig sync — synkar erbjudanden för alla butiker med aktiva användare
 - Script: `node scripts/sync-offers.js`
+- Kräver `DATABASE_URL` och `SCRAPER_URL` miljövariabler
 
 ## Beslut
 
-1. **Auth:** Magic Link (inte Google/social)
-2. **Arkitektur:** Scraper → Supabase → Web (inte direkt scraper-anrop)
-3. **Pris:** 69 kr/mån, 1 vecka gratis trial
-
-## Lärdomar
-
-1. **Docker rebuild krävs** efter scraper-kodändringar
-2. **Verifiera build** efter varje push — anta inte att deploy funkar
-3. **tsconfig exclude** — lägg till scraper-mappen så Vercel inte bygger den
-4. **Vercel kan inte nå localhost** — använd nattlig cron istället för real-time
-
-## AI-genererade recept
-
-Recepten skapas av **Gemini 3 Flash** via OpenRouter baserat på:
-- Användarens preferenser (allergier, dieter, matkulturer)
-- Veckans erbjudanden från valda butiker
-- Hushållets storlek
-
-### Features
-- Helt svenska recept med metriska mått (dl, g, msk)
-- Steg-för-steg instruktioner
-- Näringsvärden (kcal, protein, kolhydrater, fett)
-- Markerar ingredienser som matchar erbjudanden
-- Tips för tillagning
-
-### Inställningar (Settings-sidan)
-- Hushållsstorlek + barn
-- Kostrestriktioner (11 val)
-- Kostmål (5 val)
-- Matkulturer (10 val)
-- Favoriter & ogillade ingredienser
-- Antal middagar/vecka (3-7)
-- Max tillagningstid (15-90 min)
-
-## TODO
-
-### Hög prio
-- [x] **Meny-generering (Edamam + OpenRouter)** — implementerat!
-- [ ] Inköpslista med butiksgruppering
-
-### Medium prio
-- [ ] Coop scraper fix
-- [ ] Spara genererade menyer i databas
-- [ ] Swap-feedback loop (lär sig preferenser)
-
-### Låg prio
-- [ ] Förbättra kategori-klassificering
-- [ ] Dela meny / familjegrupper
-- [ ] Stripe-betalning
+1. **Auth:** Magic Link (inte social login)
+2. **Arkitektur:** Scraper → Supabase → Web (inte real-time scraping)
+3. **AI-modell:** Gemini 3 Flash via OpenRouter
+4. **Recept:** Riktiga receptlänkar via Brave Search (inte AI-genererade recept)
+5. **Fredagsmys:** Fredagar föreslår alltid tacos, pizza eller hamburgare
+6. **Pris:** 69 kr/mån eller 499 kr/år, 1 vecka gratis trial
 
 ---
-*Senast uppdaterad: 2026-01-27*
+*Senast uppdaterad: 2026-02-07*

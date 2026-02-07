@@ -1,0 +1,36 @@
+name: Deploy Scraper
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scraper/**'
+
+jobs:
+  deploy:
+    name: Deploy Scraper to VPS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            set -e
+            cd /opt/matino
+            git pull origin main
+            cd scraper
+            docker build -t smartamenyn-scraper .
+            docker stop smartamenyn-scraper 2>/dev/null || true
+            docker rm smartamenyn-scraper 2>/dev/null || true
+            docker run -d \
+              --name smartamenyn-scraper \
+              --restart unless-stopped \
+              -p 3001:3001 \
+              --env-file /opt/matino/scraper/.env \
+              smartamenyn-scraper
+            sleep 10
+            curl -sf http://localhost:3001/health || \
+              { docker logs smartamenyn-scraper --tail 50; exit 1; }
+            docker image prune -f

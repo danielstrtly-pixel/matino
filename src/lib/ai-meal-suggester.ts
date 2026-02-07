@@ -7,7 +7,7 @@
  * Recipes are sourced from real Swedish recipe sites via recipe-search.ts
  */
 
-import { chat } from './openrouter';
+import { chat, DEFAULT_MODEL } from './openrouter';
 import { searchRecipes, RecipeLink, RecipeSourceId } from './recipe-search';
 
 export type MenuMode = 'taste' | 'budget';
@@ -114,7 +114,7 @@ export async function generateMenu(
   return {
     items,
     generatedAt: new Date().toISOString(),
-    model: 'google/gemini-3-flash-preview',
+    model: DEFAULT_MODEL,
     mode,
   };
 }
@@ -200,7 +200,7 @@ ${allOffers}`;
       { role: 'system', content: 'Välj de bästa matlagningsingredienserna. Svara i JSON.' },
       { role: 'user', content: prompt },
     ], {
-      model: 'google/gemini-3-flash-preview',
+      model: DEFAULT_MODEL,
       temperature: 0.3,
       max_tokens: 1000,
       json_mode: true,
@@ -276,7 +276,7 @@ async function suggestMeals(
     },
     { role: 'user', content: prompt },
   ], {
-    model: 'google/gemini-3-flash-preview',
+    model: DEFAULT_MODEL,
     temperature: 0.8,
     max_tokens: 2000,
     json_mode: true,
@@ -403,7 +403,7 @@ Svara i JSON:
     { role: 'system', content: 'Föreslå ett rättsnamn. searchQuery ska vara 2-3 ord max. Svara i JSON.' },
     { role: 'user', content: prompt },
   ], {
-    model: 'google/gemini-3-flash-preview',
+    model: DEFAULT_MODEL,
     temperature: 0.9,
     max_tokens: 500,
     json_mode: true,

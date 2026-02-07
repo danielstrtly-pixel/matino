@@ -115,7 +115,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-charcoal mb-3">8. Ansvarsbegränsning</h2>
             <p className="text-charcoal/80 leading-relaxed">
-              Tjänsten tillhandahålls "i befintligt skick". Vi ansvarar inte för:
+              Tjänsten tillhandahålls {'"'}i befintligt skick{'"'}. Vi ansvarar inte för:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-charcoal/80 mt-2">
               <li>Felaktigheter i erbjudandeinformation från butiker</li>

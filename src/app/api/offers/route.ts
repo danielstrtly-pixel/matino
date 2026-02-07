@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { SCRAPER_URL } from '@/lib/config';
 
 export async function GET(request: Request) {
   try {
@@ -105,22 +106,32 @@ export async function GET(request: Request) {
   }
 }
 
-// Keep POST for backward compatibility with scraper direct calls
+// POST proxy to scraper — requires authentication
 export async function POST(request: Request) {
-  // Redirect to scraper if needed (for admin/sync purposes)
-  const SCRAPER_URL = process.env.SCRAPER_URL || 'http://localhost:3001';
-  
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+
   try {
     const store = await request.json();
-    
+
+    // Validate chain is a known value to prevent SSRF
+    const allowedChains = ['ica', 'hemkop', 'lidl', 'coop'];
+    if (!store.chain || !allowedChains.includes(store.chain)) {
+      return NextResponse.json({ error: 'Invalid chain' }, { status: 400 });
+    }
+
     const res = await fetch(`${SCRAPER_URL}/chains/${store.chain}/offers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(store),
     });
-    
+
     if (!res.ok) throw new Error(`Scraper error: ${res.statusText}`);
-    
+
     return NextResponse.json(await res.json());
   } catch (error) {
     return NextResponse.json(
