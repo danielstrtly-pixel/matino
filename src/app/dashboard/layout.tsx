@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LogoutButton } from "@/components/LogoutButton";
-import { MobileNav } from "@/components/MobileNav";
+import { NavBar } from "@/components/NavBar";
+import { Footer } from "@/components/Footer";
 import { TrialBanner } from "@/components/TrialBanner";
 import { checkAccess } from "@/lib/access";
 
@@ -20,52 +19,17 @@ export default async function DashboardLayout({
 
   const access = await checkAccess(user);
 
-  const navItems = [
-    { href: "/dashboard", label: "Översikt", icon: "🏠" },
-    { href: "/dashboard/stores", label: "Butiker", icon: "🏪" },
-    { href: "/dashboard/deals", label: "Erbjudanden", icon: "🏷️" },
-    { href: "/dashboard/menu", label: "Veckomeny", icon: "🍽️" },
-    { href: "/dashboard/recipes", label: "Receptsamling", icon: "❤️" },
-    { href: "/dashboard/settings", label: "Inställningar", icon: "⚙️" },
-  ];
-
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Top Navigation */}
-      <nav className="bg-cream-light border-b border-cream-dark sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🥗</span>
-            <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
-          </Link>
-          
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => (
-              <Link 
-                key={item.href}
-                href={item.href} 
-                className="text-charcoal/70 hover:text-charcoal transition-colors flex items-center gap-1.5"
-              >
-                <span className="text-sm">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-            <span className="text-cream-dark">|</span>
-            <LogoutButton />
-          </div>
-          
-          {/* Mobile menu button */}
-          <MobileNav items={navItems} />
-        </div>
-      </nav>
-      
-      {/* Trial banner */}
+    <div className="min-h-screen bg-cream flex flex-col">
+      <NavBar variant="dashboard" />
+
       {access.isTrialing && access.trialDaysLeft !== null && (
         <TrialBanner daysLeft={access.trialDaysLeft} />
       )}
-      
-      <main className="pb-8">{children}</main>
+
+      <main className="flex-1 pb-8">{children}</main>
+
+      <Footer />
     </div>
   );
 }

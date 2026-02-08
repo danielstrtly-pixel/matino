@@ -183,12 +183,6 @@ function RecipeCard({
               🍽️
             </div>
           )}
-          {/* Source badge */}
-          {recipe.source && (
-            <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-xs font-medium ${badgeColor}`}>
-              {recipe.source}
-            </div>
-          )}
           {/* Remove heart - shows on hover */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
