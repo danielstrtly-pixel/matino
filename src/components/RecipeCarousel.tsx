@@ -94,8 +94,8 @@ export function RecipeCarousel({ recipes, selectedIndex, onSelect, savedUrls, on
   return (
     <div className="relative">
       <style>{fadeInKeyframes}</style>
-      {/* Carousel viewport - fixed height to prevent jumping */}
-      <div className="overflow-hidden h-[400px]" ref={emblaRef}>
+      {/* Carousel viewport */}
+      <div className="overflow-hidden h-[280px] md:h-[400px]" ref={emblaRef}>
         <div className="flex items-end h-full">
           {recipes.map((recipe, index) => {
             const isActive = index === currentIndex;
@@ -212,10 +212,6 @@ function RecipeCard({
             🍽️
           </div>
         )}
-        {/* Source badge */}
-        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-xs font-medium ${badgeColor}`}>
-          {recipe.source}
-        </div>
         {/* Save heart button */}
         {isActive && onToggleSave && (
           <button
