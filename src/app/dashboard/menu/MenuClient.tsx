@@ -349,11 +349,9 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
               <div key={`${item.dayIndex}-${item.meal}`}>
                 {/* Day header */}
                 <div className="flex items-start justify-between mb-2 gap-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 sm:flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-green-700">{item.day}</h2>
-                      <span className="text-base text-charcoal font-medium">— {item.suggestion.name}</span>
-                    </div>
+                  <div className="flex flex-col gap-1">
+                    <h2 className="text-lg font-bold text-green-700">{item.day}</h2>
+                    <span className="text-base text-charcoal font-medium">{item.suggestion.name}</span>
                     {item.matchedOffers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {item.matchedOffers.map((offer, i) => {
