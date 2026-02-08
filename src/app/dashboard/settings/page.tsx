@@ -31,6 +31,7 @@ type EditableField = 'householdSize' | 'currentMeals' | 'wantedChanges' | 'restr
 
 export default function SettingsPage() {
   const [interviewProfile, setInterviewProfile] = useState<InterviewProfile | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export default function SettingsPage() {
       if (prefsRes.ok) {
         const data = await prefsRes.json();
         setInterviewProfile(data.interviewProfile || null);
+        setEmail(data.email || null);
       }
     } catch (e) {
       console.error("Failed to load data:", e);
@@ -152,6 +154,11 @@ export default function SettingsPage() {
         <p className="text-gray-600 mt-2">
           Berätta vad du gillar så skapar vi perfekta menyer för dig.
         </p>
+        {email && (
+          <p className="text-sm text-gray-500 mt-1">
+            Inloggad som {email}
+          </p>
+        )}
         {saveMessage && (
           <p className="text-sm text-green-600 mt-2">{saveMessage}</p>
         )}

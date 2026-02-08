@@ -25,6 +25,9 @@ export async function GET() {
 
     // Return preferences - interview profile is the main source now
     return NextResponse.json({
+      // User info
+      email: user.email || null,
+
       // Core preferences from interview
       interviewProfile: prefs?.interview_profile || null,
       

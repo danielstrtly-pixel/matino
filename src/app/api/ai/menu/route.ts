@@ -134,7 +134,41 @@ export async function POST(request: NextRequest) {
 
     if (action === 'generate') {
       const mode: MenuMode = body.mode === 'budget' ? 'budget' : 'taste';
-      const menu = await generateMenu(preferences, formattedOffers, mode);
+
+      // Save regenerate feedback if provided
+      const genFeedback = body.feedback;
+      if (genFeedback?.preference) {
+        await supabase.from('user_feedback').insert({
+          user_id: user.id,
+          recipe_name: 'Hela menyn',
+          feedback_type: 'regenerate',
+          reason: null,
+          preference: genFeedback.preference,
+          tags: extractFeedbackTags(undefined, genFeedback.preference),
+        });
+      }
+
+      // Load recent feedback history
+      const { data: userFeedback } = await supabase
+        .from('user_feedback')
+        .select('reason, preference, tags')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const feedbackContext = userFeedback?.map(f => ({
+        reason: f.reason,
+        preference: f.preference,
+      })).filter(f => f.reason || f.preference) || [];
+
+      const menu = await generateMenu(
+        preferences,
+        formattedOffers,
+        mode,
+        undefined,
+        genFeedback?.preference || null,
+        feedbackContext
+      );
 
       // Deactivate old menus
       await supabase
@@ -172,6 +206,7 @@ export async function POST(request: NextRequest) {
           recipeLinks: item.recipes,
         },
         matched_offers: item.matchedOffers,
+        selected_recipe_index: Math.floor((item.recipes?.length || 0) / 2),
       }));
 
       await supabase.from('menu_items').insert(menuItems);
@@ -256,6 +291,7 @@ export async function POST(request: NextRequest) {
               recipeLinks: newMeal.recipes,
             },
             matched_offers: newMeal.matchedOffers,
+            selected_recipe_index: Math.floor((newMeal.recipes?.length || 0) / 2),
           })
           .eq('menu_id', currentMenu.id)
           .eq('day_index', dayIndex)
