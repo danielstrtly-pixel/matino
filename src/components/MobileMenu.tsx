@@ -68,8 +68,7 @@ export function MobileMenu(props: MobileMenuProps) {
 
           <nav className="flex-1 py-4">
             {props.variant === "dashboard" && props.items.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              const isActive = pathname === item.href || pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}

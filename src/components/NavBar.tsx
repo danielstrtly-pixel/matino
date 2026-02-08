@@ -10,10 +10,9 @@ export interface NavItem {
 }
 
 const dashboardNavItems: NavItem[] = [
-  { href: "/dashboard", label: "Översikt", icon: "🏠" },
+  { href: "/dashboard/menu", label: "Veckomeny", icon: "🍽️" },
   { href: "/dashboard/stores", label: "Butiker", icon: "🏪" },
   { href: "/dashboard/deals", label: "Erbjudanden", icon: "🏷️" },
-  { href: "/dashboard/menu", label: "Veckomeny", icon: "🍽️" },
   { href: "/dashboard/recipes", label: "Receptsamling", icon: "❤️" },
   { href: "/dashboard/settings", label: "Inställningar", icon: "⚙️" },
 ];

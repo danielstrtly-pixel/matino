@@ -7,16 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 
-interface AuthFormProps {
-  variant: "login" | "signup";
-}
-
-export function AuthForm({ variant }: AuthFormProps) {
+export function AuthForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const isSignup = variant === "signup";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,13 +44,9 @@ export function AuthForm({ variant }: AuthFormProps) {
             <span className="text-2xl">🥗</span>
             <span className="text-xl font-serif font-bold text-charcoal">SmartaMenyn</span>
           </Link>
-          <CardTitle className="text-charcoal">
-            {isSignup ? "Kom igång gratis" : "Logga in"}
-          </CardTitle>
+          <CardTitle className="text-charcoal">Logga in</CardTitle>
           <CardDescription>
-            {isSignup
-              ? "Ange din e-post så skickar vi en magisk länk. Inget lösenord behövs."
-              : "Ange din e-post så skickar vi en magisk länk."}
+            Ange din e-post så skickar vi en magisk länk. Inget lösenord behövs.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -70,7 +60,7 @@ export function AuthForm({ variant }: AuthFormProps) {
               disabled={loading}
             />
             <Button type="submit" className="w-full bg-orange hover:bg-orange-hover text-white" disabled={loading}>
-              {loading ? "Skickar..." : isSignup ? "Skicka magisk länk →" : "Skicka magisk länk"}
+              {loading ? "Skickar..." : "Skicka magisk länk →"}
             </Button>
           </form>
 
@@ -92,20 +82,6 @@ export function AuthForm({ variant }: AuthFormProps) {
             <Link href="/terms" className="underline hover:text-charcoal">villkor</Link> och{" "}
             <Link href="/privacy" className="underline hover:text-charcoal">integritetspolicy</Link>.
           </p>
-
-          <div className="mt-6 text-center text-sm text-charcoal/50">
-            {isSignup ? (
-              <>
-                Har redan ett konto?{" "}
-                <Link href="/login" className="text-orange hover:underline">Logga in</Link>
-              </>
-            ) : (
-              <>
-                Ny här?{" "}
-                <Link href="/signup" className="text-orange hover:underline">Prova gratis i 7 dagar</Link>
-              </>
-            )}
-          </div>
         </CardContent>
       </Card>
     </div>

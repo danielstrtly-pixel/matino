@@ -61,16 +61,16 @@ export function HeroSection({ isLoggedIn }: HeroSectionProps) {
 
           <RevealOnScroll delay={0.2}>
             <div className="grid grid-cols-3 gap-4 mt-10 pt-8 border-t border-cream-dark">
-              <div className="text-center lg:text-left">
+              <div className="text-center lg:text-center">
                 <div className="text-2xl md:text-3xl font-bold text-charcoal">2–3h</div>
                 <div className="text-xs md:text-sm text-charcoal/60">sparad tid per vecka</div>
               </div>
-              <div className="text-center lg:text-left">
+              <div className="text-center lg:text-center">
                 <div className="text-2xl md:text-3xl font-bold text-charcoal">800kr</div>
                 <div className="text-xs md:text-sm text-charcoal/60">lägre matkostnad/mån</div>
               </div>
-              <div className="text-center lg:text-left">
-                <div className="text-2xl md:text-3xl font-bold text-charcoal">0st</div>
+              <div className="text-center lg:text-center">
+                <div className="text-2xl md:text-3xl font-bold text-charcoal">0 st</div>
                 <div className="text-xs md:text-sm text-charcoal/60">&quot;vad ska vi äta?&quot;</div>
               </div>
             </div>
