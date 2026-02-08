@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { RevealOnScroll } from "./RevealOnScroll";
@@ -76,17 +77,20 @@ export function HeroSection({ isLoggedIn }: HeroSectionProps) {
           </RevealOnScroll>
         </div>
 
-        {/* Right column - placeholder for phone mockup */}
+        {/* Right column - phone mockup */}
         <RevealOnScroll delay={0.15} className="hidden lg:block">
-          <div className="bg-cream-light border-2 border-cream-dark rounded-3xl p-8 aspect-[3/4] flex flex-col items-center justify-center text-center">
-            <span className="text-6xl mb-4">🥗</span>
-            <p className="text-lg font-serif font-semibold text-charcoal mb-2">
-              Veckomeny-preview
-            </p>
-            <p className="text-sm text-charcoal/50">
-              Interaktiv förhandsvisning kommer snart
-            </p>
-          </div>
+          <Image
+            src="/hand_smarta.webp"
+            alt="SmartaMenyn veckomeny visad på en mobil"
+            width={600}
+            height={800}
+            className="rounded-3xl"
+            style={{
+              maskImage: "radial-gradient(ellipse 70% 85% at center, black 60%, transparent 100%)",
+              WebkitMaskImage: "radial-gradient(ellipse 70% 65% at center, black 50%, transparent 100%)",
+            }}
+            priority
+          />
         </RevealOnScroll>
       </div>
     </section>
