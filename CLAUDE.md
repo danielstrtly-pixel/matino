@@ -26,11 +26,9 @@ npm run scrape:ica   # CLI: scrape ICA offers
 npm run scrape:hemkop # CLI: scrape Hemköp offers
 ```
 
-### Data Scripts (root directory)
-```bash
-node scripts/sync-offers.js   # Sync offers from scraper API → Supabase
-node scripts/sync-stores.js   # Sync store data
-```
+### Sync
+Offer syncing runs automatically at 03:00 Stockholm time via `node-cron` inside the scraper service.
+Manual trigger: `curl -X POST http://localhost:3001/api/sync-all -H "X-API-Key: $SYNC_API_KEY"`
 
 ## Architecture
 
@@ -53,13 +51,14 @@ Two separate services with independent `package.json` and `tsconfig.json`:
 ### 2. Scraper Service (Express + Playwright + Cheerio)
 - `scraper/src/scrapers/` — Chain-specific scrapers extending `BaseScraper`. Each implements `searchStores()`, `getOffers()`, `validate()`.
 - `scraper/src/index.ts` — Express API server.
+- `scraper/src/sync-scheduler.ts` — Daily sync scheduler (node-cron) + transactional sync logic.
 - `scraper/src/cli.ts` — CLI for manual scraping/testing.
 - Runs in Docker container (Playwright image) in production.
 - Adding a new chain: create scraper in `src/scrapers/`, register in `src/scrapers/index.ts`.
 
 ### Data Flow
 ```
-Scraper (Docker, port 3001) → scripts/sync-offers.js → Supabase (PostgreSQL)
+Scraper (Docker, port 3001) → node-cron daily sync (03:00) → Supabase (PostgreSQL)
                                                               ↓
 User selects stores → API fetches offers + preferences → OpenRouter (GPT-4o-mini) generates meals
                                                               ↓
@@ -95,6 +94,6 @@ Required in `.env.local`:
 - All user-facing text and AI prompts must be in **Swedish**.
 - The `scraper/` directory is excluded from the main `tsconfig.json` — it has its own TypeScript config.
 - Auth uses Supabase Magic Link (email OTP), not social login.
-- Offers are synced nightly at 03:00 via cron, not fetched in real-time from scrapers.
+- Offers are synced nightly at 03:00 Stockholm time via `node-cron` in the scraper service (not fetched in real-time).
 - Scraper-specific rules (selector details for ICA, Hemköp, Lidl) are documented in `README.md` under "Scraper-regler".
 - Menu generation enforces "fredagsmys" (Friday cozy meal: tacos, pizza, burgers) and validates that offer matches are relevant to the suggested meal.
