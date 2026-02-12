@@ -167,6 +167,14 @@ export class HemkopScraper extends BaseScraper {
 
         console.log(`[Hemköp] Found ${offers.length} offers`);
 
+        // Fallback: link to store's offers page if no specific product URL
+        const storePageUrl = `${this.baseUrl}/erbjudanden/${store.externalId}`;
+        for (const offer of offers) {
+          if (!offer.offerUrl) {
+            offer.offerUrl = storePageUrl;
+          }
+        }
+
         return {
           offers,
           store,

@@ -65,10 +65,11 @@ export async function searchRecipes(
     }
 
     const data = await res.json();
+    // Return only the single best recipe match.
+    // The carousel UI supports multiple recipes if we want to expand later —
+    // just change the limit here and the carousel will handle it automatically.
+    const MAX_RECIPES = 1;
     const results: RecipeLink[] = [];
-
-    // Track which sources we've found results for
-    const foundSources = new Set<string>();
 
     for (const item of data.web?.results || []) {
       const source = sources.find(s => item.url.includes(s.domain.split('/')[0]));
@@ -76,10 +77,6 @@ export async function searchRecipes(
 
       // Skip collection/category pages (not specific recipes)
       if (isCollectionUrl(item.url)) continue;
-
-      // Limit to 1 per source (best match)
-      if (foundSources.has(source.id)) continue;
-      foundSources.add(source.id);
 
       results.push({
         title: cleanTitle(item.title),
@@ -89,15 +86,12 @@ export async function searchRecipes(
         imageUrl: item.thumbnail?.original || item.thumbnail?.src || undefined,
       });
 
-      // Stop once we have one per source
-      if (foundSources.size >= sources.length) break;
+      if (results.length >= MAX_RECIPES) break;
     }
 
-    // Add fallback links for any sources that didn't return results
-    for (const source of sources) {
-      if (!foundSources.has(source.id)) {
-        results.push(buildSearchLink(mealName, source));
-      }
+    // Add a fallback link if no results found
+    if (results.length === 0) {
+      results.push(buildSearchLink(mealName, sources[0]));
     }
 
     return results;

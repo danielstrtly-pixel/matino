@@ -332,16 +332,12 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
       {generating && (
         <div className="space-y-6">
           <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-            ✨ Söker recept från ICA, Tasteline och Arla...
+            ✨ Söker recept...
           </p>
           {[1, 2, 3].map(i => (
             <div key={i}>
               <Skeleton className="h-5 w-20 mb-3" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[1, 2, 3].map(j => (
-                  <Skeleton key={j} className="h-64 rounded-xl" />
-                ))}
-              </div>
+              <Skeleton className="h-52 md:h-64 rounded-xl" />
             </div>
           ))}
         </div>
@@ -353,7 +349,7 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
           <div className="text-6xl mb-4">🍽️</div>
           <h2 className="text-xl font-semibold mb-2">Ingen veckomeny ännu</h2>
           <p className="text-gray-500 text-sm mb-6">
-            Välj fokus ovan och klicka &quot;Skapa veckomeny&quot; för att få recept från ICA, Tasteline och Arla.
+            Välj fokus ovan och klicka &quot;Skapa veckomeny&quot; för att få personliga receptförslag.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center text-sm">
             <a href="/dashboard/settings" className="text-fresh hover:underline">

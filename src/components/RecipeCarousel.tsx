@@ -74,20 +74,62 @@ export function RecipeCarousel({ recipes, selectedIndex, onSelect, savedUrls, on
     );
   }
 
-  // Single recipe - no carousel needed
+  // Single recipe — featured card (no carousel needed)
   if (recipes.length === 1) {
+    const recipe = recipes[0];
+    const badgeColor = SOURCE_COLORS[recipe.source] || 'bg-gray-600';
+    const isSaved = savedUrls?.has(recipe.url);
+
     return (
-      <div className="flex justify-center">
-        <div style={{ width: "80%", maxWidth: "400px" }}>
-          <RecipeCard 
-            recipe={recipes[0]} 
-            isActive 
-            size="large"
-            isSaved={savedUrls?.has(recipes[0].url)}
-            onToggleSave={onToggleSave ? () => onToggleSave(recipes[0]) : undefined}
-          />
+      <a
+        href={recipe.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white hover:shadow-md hover:border-fresh/40 transition-all"
+      >
+        <div className="relative aspect-[16/9] bg-gray-100 overflow-hidden">
+          {recipe.imageUrl ? (
+            <Image
+              src={recipe.imageUrl}
+              alt={recipe.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="(max-width: 768px) 100vw, 600px"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-5xl text-gray-300">
+              🍽️
+            </div>
+          )}
+          {/* Source badge */}
+          <span className={`absolute top-3 left-3 ${badgeColor} text-white text-xs font-medium px-2.5 py-1 rounded-full shadow`}>
+            {recipe.source}
+          </span>
+          {/* Save heart button */}
+          {onToggleSave && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleSave(recipe); }}
+              className="absolute top-3 right-3 text-2xl drop-shadow-lg transition-transform hover:scale-110"
+              title={isSaved ? "Ta bort från samling" : "Spara recept"}
+            >
+              {isSaved ? "❤️" : "🤍"}
+            </button>
+          )}
         </div>
-      </div>
+        <div className="p-4">
+          <h3 className="font-semibold text-base leading-snug line-clamp-2 group-hover:text-fresh transition-colors">
+            {recipe.title}
+          </h3>
+          {recipe.description && (
+            <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+              {recipe.description}
+            </p>
+          )}
+          <span className="inline-flex items-center gap-1 mt-3 text-sm text-fresh font-medium">
+            Visa recept <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </span>
+        </div>
+      </a>
     );
   }
 

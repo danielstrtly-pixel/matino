@@ -241,6 +241,14 @@ export class ICAScraper extends BaseScraper {
         const offers = await this.extractOffersFromPage(page, store);
         console.log(`[ICA] Extracted ${offers.length} offers`);
 
+        // Fallback: link to store's offers page if no specific product URL
+        const storePageUrl = store.offersUrl || `${this.baseUrl}/erbjudanden/ica-${store.externalId}/`;
+        for (const offer of offers) {
+          if (!offer.offerUrl) {
+            offer.offerUrl = storePageUrl;
+          }
+        }
+
         return {
           offers,
           store,
