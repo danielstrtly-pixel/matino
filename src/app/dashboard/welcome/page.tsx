@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { checkOnboardingStatus } from "@/lib/onboarding";
+import WelcomeClient from "./WelcomeClient";
 
-export default async function DashboardPage() {
+export default async function WelcomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -12,9 +13,9 @@ export default async function DashboardPage() {
 
   const { needsOnboarding } = await checkOnboardingStatus(user.id);
 
-  if (needsOnboarding) {
-    redirect("/dashboard/welcome");
+  if (!needsOnboarding) {
+    redirect("/dashboard/menu");
   }
 
-  redirect("/dashboard/menu");
+  return <WelcomeClient />;
 }

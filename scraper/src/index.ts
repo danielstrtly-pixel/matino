@@ -4,6 +4,7 @@ import { Client } from 'pg';
 import { createScraper, getSupportedChains } from './scrapers';
 import type { ChainId, Store, Offer } from './types';
 import { CHAIN_CONFIGS } from './types';
+import { scheduleDailySync, runFullSync } from './sync-scheduler';
 
 const app = express();
 
@@ -348,8 +349,31 @@ app.post('/api/sync', async (req, res) => {
   }
 });
 
+// Trigger a full sync of all stores with active users (API key auth)
+app.post('/api/sync-all', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] as string;
+  if (apiKey !== SYNC_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('[API] Manual full sync triggered');
+
+  try {
+    const result = await runFullSync();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[API] Full sync failed:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Sync failed',
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 SmartaMenyn Scraper API running on port ${PORT}`);
   console.log(`   Supported chains: ${getSupportedChains().join(', ')}`);
   console.log(`   Health check: http://localhost:${PORT}/health`);
+
+  // Start the daily sync scheduler
+  scheduleDailySync();
 });

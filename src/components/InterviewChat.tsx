@@ -19,9 +19,14 @@ interface InterviewChatProps {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  variant?: "dialog" | "inline";
 }
 
-export function InterviewChat({ open, onClose, onSaved }: InterviewChatProps) {
+function InterviewChatInner({
+  open,
+  onClose,
+  onSaved,
+}: Omit<InterviewChatProps, "variant">) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -98,11 +103,11 @@ export function InterviewChat({ open, onClose, onSaved }: InterviewChatProps) {
         if (data.hasSummary) {
           const summaryMatch = data.message.match(/---SAMMANFATTNING---\n?([\s\S]*?)---PROFIL---/);
           const profileMatch = data.message.match(/---PROFIL---\n?([\s\S]*?)---SLUT---/);
-          
+
           if (summaryMatch) {
             setSummary(summaryMatch[1].trim());
           }
-          
+
           if (profileMatch) {
             try {
               // Strip markdown code blocks if present
@@ -119,7 +124,7 @@ export function InterviewChat({ open, onClose, onSaved }: InterviewChatProps) {
           const cleanMessage = data.message
             .replace(/---SAMMANFATTNING---[\s\S]*---SLUT---/, '')
             .trim();
-          
+
           if (cleanMessage) {
             setMessages([...newMessages, { role: "assistant", content: cleanMessage }]);
           }
@@ -168,93 +173,113 @@ export function InterviewChat({ open, onClose, onSaved }: InterviewChatProps) {
   };
 
   return (
+    <>
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto px-6 pb-4 min-h-[300px] max-h-[50vh] space-y-4">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                msg.role === "user"
+                  ? "bg-fresh text-white rounded-br-md"
+                  : "bg-cream-light text-charcoal rounded-bl-md"
+              }`}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-cream-light rounded-2xl rounded-bl-md px-4 py-3 text-sm">
+              <span className="animate-pulse">Skriver...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Summary card */}
+        {summary && profile && (
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 space-y-3">
+            <h3 className="font-semibold text-green-800">Din matprofil</h3>
+            <p className="text-sm text-green-700 leading-relaxed">{summary}</p>
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-fresh hover:bg-fresh/90 text-white"
+              >
+                {saving ? "Sparar..." : "Ser bra ut \u2013 spara!"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSummary(null);
+                  setProfile(null);
+                }}
+                disabled={saving}
+              >
+                Ändra något
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      {!summary && (
+        <div className="border-t px-4 py-3 flex gap-2">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Skriv ditt svar..."
+            className="min-h-[44px] max-h-[120px] resize-none"
+            rows={1}
+            disabled={loading}
+          />
+          <Button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            className="bg-fresh hover:bg-fresh/90 text-white px-4 self-end"
+          >
+            ➤
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+export function InterviewChat({ open, onClose, onSaved, variant = "dialog" }: InterviewChatProps) {
+  if (variant === "inline") {
+    return (
+      <div className="flex flex-col bg-white rounded-2xl border shadow-sm max-h-[60vh]">
+        <div className="px-6 pt-5 pb-3">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            Berätta om dina matvanor
+          </h3>
+        </div>
+        <InterviewChatInner open={open} onClose={onClose} onSaved={onSaved} />
+      </div>
+    );
+  }
+
+  return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle className="flex items-center gap-2">
-            🎙️ Berätta om dina matvanor
+            Berätta om dina matvanor
           </DialogTitle>
         </DialogHeader>
-
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4 min-h-[300px] max-h-[50vh] space-y-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-fresh text-white rounded-br-md"
-                    : "bg-cream-light text-charcoal rounded-bl-md"
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-cream-light rounded-2xl rounded-bl-md px-4 py-3 text-sm">
-                <span className="animate-pulse">Skriver...</span>
-              </div>
-            </div>
-          )}
-
-          {/* Summary card */}
-          {summary && profile && (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 space-y-3">
-              <h3 className="font-semibold text-green-800">📋 Din matprofil</h3>
-              <p className="text-sm text-green-700 leading-relaxed">{summary}</p>
-              <div className="flex gap-2 pt-2">
-                <Button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="bg-fresh hover:bg-fresh/90 text-white"
-                >
-                  {saving ? "Sparar..." : "✅ Ser bra ut – spara!"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSummary(null);
-                    setProfile(null);
-                  }}
-                  disabled={saving}
-                >
-                  Ändra något
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input area */}
-        {!summary && (
-          <div className="border-t px-4 py-3 flex gap-2">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Skriv ditt svar..."
-              className="min-h-[44px] max-h-[120px] resize-none"
-              rows={1}
-              disabled={loading}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              className="bg-fresh hover:bg-fresh/90 text-white px-4 self-end"
-            >
-              ➤
-            </Button>
-          </div>
-        )}
+        <InterviewChatInner open={open} onClose={onClose} onSaved={onSaved} />
       </DialogContent>
     </Dialog>
   );

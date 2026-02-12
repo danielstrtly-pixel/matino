@@ -1,11 +1,24 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatMenuFromDb, type MenuDb } from "@/lib/menu-utils";
+import { checkOnboardingStatus } from "@/lib/onboarding";
 import MenuClient from "./MenuClient";
 
 export default async function MenuPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || "";
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { needsOnboarding } = await checkOnboardingStatus(user.id);
+
+  if (needsOnboarding) {
+    redirect("/dashboard/welcome");
+  }
+
+  const userId = user.id;
 
   // Parallel fetch: active menu + saved recipe URLs
   const [{ data: menuData }, { data: recipesData }] = await Promise.all([

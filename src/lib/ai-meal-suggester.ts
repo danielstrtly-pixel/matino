@@ -83,12 +83,14 @@ export async function generateMenu(
   preferences: UserPreferences,
   offers: Offer[],
   mode: MenuMode = 'taste',
-  recipeSources?: RecipeSourceId[]
+  recipeSources?: RecipeSourceId[],
+  userPreference?: string | null,
+  feedbackHistory?: { reason?: string; preference?: string }[]
 ): Promise<GeneratedMenu> {
   console.log(`[MealSuggester] Generating menu in "${mode}" mode`);
 
   // Step 1: AI generates meal names
-  const suggestions = await suggestMeals(preferences, offers, mode);
+  const suggestions = await suggestMeals(preferences, offers, mode, userPreference, feedbackHistory);
 
   // Step 2: Search for real recipes sequentially (Brave free tier: 1 req/sec)
   console.log(`[MealSuggester] Searching recipes for ${suggestions.length} meals...`);
@@ -255,9 +257,24 @@ ${ip?.menuPrompt || ip?.preferences || ''}`;
 async function suggestMeals(
   preferences: UserPreferences,
   offers: Offer[],
-  mode: MenuMode
+  mode: MenuMode,
+  userPreference?: string | null,
+  feedbackHistory?: { reason?: string; preference?: string }[]
 ): Promise<MealSuggestion[]> {
   const profileContext = buildProfileContext(preferences);
+
+  // Build feedback context if provided
+  let feedbackCtx = '';
+  if (userPreference) {
+    feedbackCtx += `\nANVÄNDARENS ÖNSKEMÅL FÖR DENNA MENY: ${userPreference}\n`;
+  }
+  if (feedbackHistory?.length) {
+    feedbackCtx += '\nTIDIGARE FEEDBACK:\n';
+    for (const fb of feedbackHistory.slice(0, 5)) {
+      if (fb.reason) feedbackCtx += `- Ogillade: ${fb.reason}\n`;
+      if (fb.preference) feedbackCtx += `- Föredrar: ${fb.preference}\n`;
+    }
+  }
 
   // Step 1: Curate offers — AI picks the best cooking ingredients
   const curatedOffers = await curateOffers(offers);
@@ -265,9 +282,13 @@ async function suggestMeals(
     `- ${o.name} (${o.offer_price} kr, ${o.store_name})`
   ).join('\n');
 
-  const prompt = mode === 'taste'
+  let prompt = mode === 'taste'
     ? buildTastePrompt(preferences.mealsPerWeek, profileContext, offersSummary)
     : buildBudgetPrompt(preferences.mealsPerWeek, profileContext, offersSummary);
+
+  if (feedbackCtx) {
+    prompt = feedbackCtx + '\n' + prompt;
+  }
 
   const result = await chat([
     {

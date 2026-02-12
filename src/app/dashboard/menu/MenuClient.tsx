@@ -86,6 +86,8 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
   const [swapPreference, setSwapPreference] = useState('');
   const [mode, setMode] = useState<MenuMode>(initialMenu?.mode || 'taste');
   const [savedRecipeUrls, setSavedRecipeUrls] = useState<Set<string>>(new Set(initialSavedRecipeUrls));
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [regenerateWish, setRegenerateWish] = useState('');
 
   const updateSelectedRecipe = async (menuItemId: string, selectedRecipeIndex: number) => {
     try {
@@ -179,14 +181,18 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
     }
   };
 
-  const generateMenu = async () => {
+  const generateMenu = async (feedback?: string) => {
     setGenerating(true);
     setError(null);
     try {
+      const body: Record<string, unknown> = { action: 'generate', mode };
+      if (feedback) {
+        body.feedback = { preference: feedback };
+      }
       const res = await fetch('/api/ai/menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', mode }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -199,6 +205,20 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleNewMenuClick = () => {
+    if (menu) {
+      setRegenerateWish('');
+      setShowRegenerateDialog(true);
+    } else {
+      generateMenu();
+    }
+  };
+
+  const executeRegenerate = () => {
+    setShowRegenerateDialog(false);
+    generateMenu(regenerateWish || undefined);
   };
 
   const openSwapDialog = (item: MenuItem) => {
@@ -297,7 +317,7 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
           </button>
         </div>
 
-        <Button onClick={generateMenu} disabled={generating} className="mt-4 w-full sm:w-auto" size="lg">
+        <Button onClick={handleNewMenuClick} disabled={generating} className="mt-4 w-full sm:w-auto" size="lg">
           {generating ? '⏳ Skapar meny...' : `🤖 ${menu ? 'Ny meny' : 'Skapa veckomeny'}`}
         </Button>
       </div>
@@ -332,9 +352,18 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
         <div className="text-center py-16">
           <div className="text-6xl mb-4">🍽️</div>
           <h2 className="text-xl font-semibold mb-2">Ingen veckomeny ännu</h2>
-          <p className="text-gray-500 text-sm">
-            Välj fokus och klicka &quot;Skapa veckomeny&quot; för att få recept från ICA, Tasteline och Arla.
+          <p className="text-gray-500 text-sm mb-6">
+            Välj fokus ovan och klicka &quot;Skapa veckomeny&quot; för att få recept från ICA, Tasteline och Arla.
           </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center text-sm">
+            <a href="/dashboard/settings" className="text-fresh hover:underline">
+              Skapa din matprofil för personliga förslag
+            </a>
+            <span className="hidden sm:inline text-gray-300">|</span>
+            <a href="/dashboard/stores" className="text-fresh hover:underline">
+              Välj butiker för att matcha erbjudanden
+            </a>
+          </div>
         </div>
       )}
 
@@ -439,6 +468,38 @@ export default function MenuClient({ initialMenu, initialSavedRecipeUrls }: Menu
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSwapItem(null)}>Avbryt</Button>
             <Button onClick={executeSwap}>🔄 Byt rätt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Regenerate dialog */}
+      <Dialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Skapa ny meny</DialogTitle>
+            <DialogDescription>Berätta vad du vill ändra så anpassar vi nästa meny.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="regenerate-wish">Vad önskar du annorlunda? (valfritt)</Label>
+              <Textarea
+                id="regenerate-wish"
+                placeholder="T.ex. 'Mer vegetariskt', 'Enklare rätter', 'Mer asiatiskt'..."
+                value={regenerateWish}
+                onChange={(e) => setRegenerateWish(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <a
+              href="/dashboard/settings"
+              className="text-sm text-fresh hover:underline inline-block"
+            >
+              Vill du uppdatera din matprofil?
+            </a>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowRegenerateDialog(false)}>Avbryt</Button>
+            <Button onClick={executeRegenerate}>🤖 Skapa ny meny</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

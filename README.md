@@ -28,7 +28,7 @@ Två separata applikationer:
 
 ### Dataflöde
 ```
-Scraper (Docker, port 3001) → scripts/sync-offers.js → Supabase (PostgreSQL)
+Scraper (Docker, port 3001) → node-cron (03:00 daglig sync) → Supabase (PostgreSQL)
                                                               ↓
 User väljer butiker → API hämtar erbjudanden + preferenser → OpenRouter (Gemini 3 Flash) genererar måltidsförslag
                                                               ↓
@@ -73,6 +73,7 @@ GET  /chains/:chain/stores?q=   — Sök butiker
 POST /chains/:chain/offers      — Hämta erbjudanden för en butik
 GET  /validate[/:chain]         — Validera scraper(s)
 POST /api/sync                  — Synka erbjudanden för en användares butiker (auth krävs)
+POST /api/sync-all              — Manuellt trigga full sync av alla butiker (X-API-Key krävs)
 ```
 
 ### Rebuild efter kodändringar
@@ -83,10 +84,13 @@ docker build -t smartamenyn-scraper .
 docker run -d --name smartamenyn-scraper -p 3001:3001 --restart unless-stopped smartamenyn-scraper
 ```
 
-### Synka erbjudanden till Supabase
+### Synka erbjudanden
+Synkning sker automatiskt kl 03:00 Stockholm-tid via `node-cron` i scraper-tjänsten.
+Varje butik synkas transaktionellt — om scraping misslyckas behålls gamla erbjudanden.
+
+Manuell triggning:
 ```bash
-# Kräver DATABASE_URL miljövariabel
-node scripts/sync-offers.js
+curl -X POST http://localhost:3001/api/sync-all -H "X-API-Key: $SYNC_API_KEY"
 ```
 
 ## Scraper-regler
@@ -165,9 +169,10 @@ npm run scrape:hemkop # CLI: skrapa Hemköp-erbjudanden
 
 ## Cron
 
-- **05:00 Stockholm** daglig sync — synkar erbjudanden för alla butiker med aktiva användare
-- Script: `node scripts/sync-offers.js`
-- Kräver `DATABASE_URL` och `SCRAPER_URL` miljövariabler
+- **03:00 Stockholm** daglig sync — körs automatiskt via `node-cron` i scraper-tjänsten (Docker)
+- Synkar erbjudanden för alla butiker med aktiva användare
+- Transaktionell per butik — om scraping misslyckas behålls gamla erbjudanden
+- Kan triggas manuellt via `POST /api/sync-all` med `X-API-Key`
 
 ## Beslut
 
